@@ -98,7 +98,7 @@ namespace DPXTool
             /// <summary>
             /// job filter by job run type (BASE, DIFF, INCR)
             /// </summary>
-            [Option("job-type", Required = false, HelpText = "filter for jobs with this type (Base, Diff, Incr). multiple possible")]
+            [Option("job-type", Required = false, HelpText = "filter for jobs with this type (Base, Difr, Incr). multiple possible")]
             public IEnumerable<JobRunType> FilterJobRunTypes { get; set; }
 
             /// <summary>
@@ -154,7 +154,7 @@ namespace DPXTool
         /// <summary>
         /// Format string to convert DateTime into string using toString()
         /// </summary>
-        const string DATE_FORMAT = "yyyy.MM.dd, HH:mm.ss";
+        const string DATE_FORMAT = "yyyy.MM.dd, HH:mm:ss";
 
         /// <summary>
         /// the dpx client

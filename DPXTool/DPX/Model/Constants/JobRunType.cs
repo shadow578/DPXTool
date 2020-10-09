@@ -7,7 +7,7 @@
     {
         None,
         BASE,
-        DIFF,
+        DIFR,
         INCR
     }
 }
