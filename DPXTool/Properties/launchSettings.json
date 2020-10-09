@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DPXTool": {
+      "commandName": "Project",
+      "commandLineArgs": "get-license --host \"http://se002-dpxmaster.bgad.local\" --user \"sysadmin\" --debug-requests"
+    }
+  }
+}
