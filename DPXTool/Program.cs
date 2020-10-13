@@ -3,6 +3,7 @@ using DPXTool.DPX.Model.Common;
 using DPXTool.DPX.Model.Constants;
 using DPXTool.DPX.Model.JobInstances;
 using DPXTool.DPX.Model.License;
+using DPXTool.DPX.Model.Nodes;
 using System;
 using System.Threading.Tasks;
 
@@ -16,7 +17,7 @@ namespace DPXTool
     class Program
     {
 
-        static void MainX(string[] args)
+        public static void MainX(string[] args)
         {
             test().ConfigureAwait(false).GetAwaiter().GetResult();
         }
@@ -40,10 +41,11 @@ namespace DPXTool
             pw = null;
 
             //demos
-            await DemoLicense();
-            await DemoJobs();
-            await DemoLogs();
-            await DemoVolsers();
+            //await DemoLicense();
+            //await DemoJobs();
+            //await DemoLogs();
+            //await DemoVolsers();
+            await DemoNodes();
 
             Console.WriteLine("end");
             Console.ReadLine();
@@ -136,6 +138,39 @@ Licensed:");
                     foreach (string volser in volsers)
                         Console.WriteLine($"  {volser}");
             }
+        }
+
+        /// <summary>
+        /// demo for GetNodes() and GetNodeGroups()
+        /// </summary>
+        /// <returns></returns>
+        static async Task DemoNodes()
+        {
+            //get all node groups
+            NodeGroup[] groups = await client.GetNodeGroupsAsync();
+
+            //print node grups
+            Console.WriteLine($"found {groups.Length} node groups:");
+            foreach(NodeGroup group in groups)
+                Console.WriteLine($" {group.Name} - created by {group.Creator}");
+
+            //get all nodes
+            Node[] nodes = await client.GetNodesAsync();
+
+            //print nodes
+            Console.WriteLine($"found {nodes.Length} nodes:");
+            foreach(Node node in nodes)
+                Console.WriteLine($" {node.Name} in group {node.GroupName} running {node.OSDisplayName}");
+
+            //get nodes in group
+            Console.Write("enter node group name: ");
+            string targetGroup = Console.ReadLine();
+            Node[] targetedNodes = await client.GetNodesAsync(nodeGroup: targetGroup);
+
+            //print nodes
+            Console.WriteLine($"found {targetedNodes.Length} nodes:");
+            foreach (Node node in targetedNodes)
+                Console.WriteLine($" {node.Name} in group {node.GroupName} running {node.OSDisplayName}");
         }
 
         static void ConsoleWriteLineC(string msg, ConsoleColor fgc, bool useFGC)

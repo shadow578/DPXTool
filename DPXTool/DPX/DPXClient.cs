@@ -1,7 +1,9 @@
-﻿using DPXTool.DPX.Model.Common;
+﻿using CommandLine;
+using DPXTool.DPX.Model.Common;
 using DPXTool.DPX.Model.JobInstances;
 using DPXTool.DPX.Model.License;
 using DPXTool.DPX.Model.Login;
+using DPXTool.DPX.Model.Nodes;
 using DPXTool.Util;
 using Newtonsoft.Json;
 using Refit;
@@ -129,7 +131,7 @@ namespace DPXTool.DPX
         /// <returns>the list of found job instances</returns>
         public async Task<JobInstance[]> GetJobInstancesAsync(params FilterItem[] filters)
         {
-            //check state+
+            //check state
             ThrowIfInvalidState();
 
             //send request
@@ -205,6 +207,67 @@ namespace DPXTool.DPX
 
             //invoke api
             return await dpx.GetStatusInfo(statusSegment);
+        }
+
+        /// <summary>
+        /// get node group information for a named node group
+        /// </summary>
+        /// <param name="nodeGroupName">the name of the node group to get info of</param>
+        /// <returns>info about the node group</returns>
+        public async Task<NodeGroup> GetNodeGroupAsync(string nodeGroupName)
+        {
+            //check state
+            ThrowIfInvalidState();
+
+            //query node group
+            NodeGroup group = await dpx.GetNodeGroup(Token, nodeGroupName);
+
+            //set client reference in group
+            if (group != null)
+                group.SourceClient = this;
+
+            return group;
+        }
+
+        /// <summary>
+        /// Get a list of all node groups
+        /// </summary>
+        /// <returns>a list of all node groups</returns>
+        public async Task<NodeGroup[]> GetNodeGroupsAsync()
+        {
+            //check state
+            ThrowIfInvalidState();
+
+            //query node groups
+            NodeGroup[] groups = await dpx.GetNodeGroups(Token);
+
+            //set client reference in all groups
+            foreach (NodeGroup group in groups)
+                group.SourceClient = this;
+
+            return groups;
+        }
+
+        /// <summary>
+        /// get all nodes matching the criteria
+        /// if no criteria are given, a list of all nodes is returned
+        /// </summary>
+        /// <param name="nodeGroup">the node group nodes must be in (optional)</param>
+        /// <param name="nodeType">the node type the nodes must have (optional)</param>
+        /// <returns>a list of nodes matching the criteria</returns>
+        public async Task<Node[]> GetNodesAsync(string nodeGroup = null, string nodeType = null)
+        {
+            //check state
+            ThrowIfInvalidState();
+
+            //get nodes
+            Node[] nodes = await dpx.GetNodes(Token, nodeGroup, nodeType);
+
+            //set client reference in all nodes
+            foreach (Node node in nodes)
+                node.SourceClient = this;
+
+            return nodes;
         }
 
         /// <summary>

@@ -4,10 +4,12 @@ using DPXTool.DPX.Model.Common;
 using DPXTool.DPX.Model.Constants;
 using DPXTool.DPX.Model.JobInstances;
 using DPXTool.DPX.Model.License;
+using DPXTool.DPX.Model.Nodes;
 using DPXTool.Util;
 using Refit;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -62,7 +64,7 @@ namespace DPXTool
         [Verb("get-license", HelpText = "get license information")]
         class PrintLicenseOptions : BaseOptions
         {
-            //no additional options neededs
+            //no additional options needed
         }
 
         /// <summary>
@@ -152,6 +154,41 @@ namespace DPXTool
         }
 
         /// <summary>
+        /// Options for the get-node-groups command
+        /// </summary>
+        [Verb("get-node-groups", HelpText = "get a list of all node groups")]
+        class GetNodeGroupsOptions : BaseOptions
+        {
+            //no additional options needed
+        }
+
+        /// <summary>
+        /// Options for the get-nodes command
+        /// </summary>
+        [Verb("get-nodes", HelpText = "get information about nodes")]
+        class GetNodesOptions : BaseOptions
+        {
+            /// <summary>
+            /// name of the node to print.
+            /// If set, NodeGroup and NodeType are ignored
+            /// </summary>
+            [Option('n', "name", Required = false, HelpText = "name of the node to print. If set, node-group and node-type are ignored", Default = null)]
+            public string NodeName { get; set; }
+
+            /// <summary>
+            /// the node group to print nodes of
+            /// </summary>
+            [Option('g', "node-group", Required = false, HelpText = "the node group to print all nodes of. works in conjunction with node-group", Default = null)]
+            public string NodeGroup { get; set; }
+
+            /// <summary>
+            /// the node type to print all nodes of
+            /// </summary>
+            [Option('t', "node-type", Required = false, HelpText = "the type of node to print nodes of. works in conjunction with node-group", Default = null)]
+            public string NodeType { get; set; }
+        }
+
+        /// <summary>
         /// Format string to convert DateTime into string using toString()
         /// </summary>
         const string DATE_FORMAT = "yyyy.MM.dd, HH:mm:ss";
@@ -173,10 +210,12 @@ namespace DPXTool
                 o.AutoHelp = true;
                 o.AutoVersion = true;
                 o.CaseInsensitiveEnumValues = true;
-            }).ParseArguments<PrintLicenseOptions, GetJobsOptions, GetLogsOptions>(args)
+            }).ParseArguments<PrintLicenseOptions, GetJobsOptions, GetLogsOptions, GetNodeGroupsOptions, GetNodesOptions>(args)
                 .WithParsed<PrintLicenseOptions>(opt => PrintLicenseMain(opt).GetAwaiter().GetResult())
                 .WithParsed<GetJobsOptions>(opt => GetJobsMain(opt).GetAwaiter().GetResult())
-                .WithParsed<GetLogsOptions>(opt => GetLogsMain(opt).GetAwaiter().GetResult());
+                .WithParsed<GetLogsOptions>(opt => GetLogsMain(opt).GetAwaiter().GetResult())
+                .WithParsed<GetNodeGroupsOptions>(opt => GetNodeGroupsMain(opt).GetAwaiter().GetResult())
+                .WithParsed<GetNodesOptions>(opt => GetNodesMain(opt).GetAwaiter().GetResult());
         }
 
         /// <summary>
@@ -425,6 +464,87 @@ Licensed Categories:");
                     await w.WriteRowAsync(true, "Source IP", "Time", "Module", "Message Code", "Message");
                     foreach (InstanceLogEntry log in logs)
                         await w.WriteRowAsync(false, log.SourceIP, log.Time.ToString(DATE_FORMAT), log.Module, log.MessageCode, log.Message);
+
+                    //end document
+                    await w.EndDocumentAsync();
+                }
+            #endregion
+        }
+
+        /// <summary>
+        /// app mode: get node groups
+        /// </summary>
+        /// <param name="options">options from the command line</param>
+        static async Task GetNodeGroupsMain(GetNodeGroupsOptions options)
+        {
+            //initialize dpx client
+            CheckPassword(options);
+            if (!await InitClient(options))
+                return;
+
+            //get node groups
+            Console.WriteLine("query node groups...");
+            NodeGroup[] groups = await dpx.GetNodeGroupsAsync();
+
+            #region write node groups to console
+            Console.WriteLine($"Found {groups.Length} node groups:");
+            foreach (NodeGroup g in groups)
+                Console.WriteLine($" {g.Name}");
+            #endregion
+
+            #region write node groups to file
+            TableWriter w = await InitTableWriter(options);
+            if (w != null)
+                using (w)
+                {
+                    //write node groups
+                    Console.WriteLine("writing to file...");
+                    await w.WriteRowAsync(true, "Group Name", "Comment", "Media Pool", "Cluster", "Creator", "Creation Time");
+                    foreach (NodeGroup g in groups)
+                        await w.WriteRowAsync(false, g.Name, g.Comment, g.MediaPool, g.ClusterName, g.Creator, g.CreationTime.ToString(DATE_FORMAT));
+
+                    //end document
+                    await w.EndDocumentAsync();
+                }
+            #endregion
+        }
+
+        /// <summary>
+        /// app mode: get nodes
+        /// </summary>
+        /// <param name="options">options from the command line</param>
+        static async Task GetNodesMain(GetNodesOptions options)
+        {
+            //initialize dpx client
+            CheckPassword(options);
+            if (!await InitClient(options))
+                return;
+
+            //get nodes
+            Console.WriteLine("query nodes...");
+            Node[] nodes;
+            if (!string.IsNullOrWhiteSpace(options.NodeName))
+                nodes = (await dpx.GetNodesAsync()).Where((n) => n.Name.Equals(options.NodeName, StringComparison.OrdinalIgnoreCase)).ToArray();
+            else
+                nodes = await dpx.GetNodesAsync(options.NodeGroup, options.NodeType);
+
+            #region write nodes to console
+            Console.WriteLine($"Found {nodes.Length} nodes:");
+            Console.WriteLine("Node Group \t| Node \t| Node Type \t| OS Name \t\t| OS Version");
+            foreach (Node n in nodes)
+                Console.WriteLine($"{n.GroupName}\t| {n.Name}\t| {n.Type}\t| {n.OSDisplayName}\t| {n.OSVersion}");
+            #endregion
+
+            #region write nodes to file
+            TableWriter w = await InitTableWriter(options);
+            if (w != null)
+                using (w)
+                {
+                    //write nodes
+                    Console.WriteLine("writing to file...");
+                    await w.WriteRowAsync(true, "Node Group", "Node", "Server Name", "Node Type", "OS", "OS Name", "OS Version", "Creator", "Creation Time", "Comments");
+                    foreach (Node n in nodes)
+                        await w.WriteRowAsync(false, n.GroupName, n.Name, n.ServerName, n.Type, n.OSGroup.ToString(), n.OSDisplayName, n.OSVersion, n.Creator, n.CreationTime.ToString(DATE_FORMAT), n.Comment);
 
                     //end document
                     await w.EndDocumentAsync();

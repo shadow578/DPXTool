@@ -2,6 +2,7 @@
 using DPXTool.DPX.Model.JobInstances;
 using DPXTool.DPX.Model.License;
 using DPXTool.DPX.Model.Login;
+using DPXTool.DPX.Model.Nodes;
 using Refit;
 using System.Threading.Tasks;
 
@@ -56,5 +57,32 @@ namespace DPXTool.DPX
         /// <returns>the status info</returns>
         [Get("/app/api/job_instance_statuses/{status}")]
         Task<JobStatusInfo> GetStatusInfo([AliasAs("status")] string statusStr);
+
+        /// <summary>
+        /// Get information about a single node group
+        /// </summary>
+        /// <param name="bearerToken">token from Login function. (Bearer {token})</param>
+        /// <param name="nodeGroup">the name of the node group</param>
+        /// <returns>the node group</returns>
+        [Get("/app/api/node_groups/{nodeGroup}")]
+        Task<NodeGroup> GetNodeGroup([Header("Authorization")] string bearerToken, string nodeGroup);
+
+        /// <summary>
+        /// Get a list of all node groups
+        /// </summary>
+        /// <param name="bearerToken">token from Login function. (Bearer {token})</param>
+        /// <returns>a list of node groups</returns>
+        [Get("/app/api/node_groups")]
+        Task<NodeGroup[]> GetNodeGroups([Header("Authorization")] string bearerToken );
+
+        /// <summary>
+        /// Get a list of all nodes
+        /// </summary>
+        /// <param name="bearerToken">token from Login function. (Bearer {token})</param>
+        /// <param name="groupNameFilter">filter nodes by node group name</param>
+        /// <param name="typeFilter">filter nodes by type</param>
+        /// <returns>a list of all matching nodes</returns>
+        [Get("/app/api/nodes")]
+        Task<Node[]> GetNodes([Header("Authorization")] string bearerToken, [AliasAs("node_group_name")] string groupNameFilter, [AliasAs("node_type")] string typeFilter);
     }
 }

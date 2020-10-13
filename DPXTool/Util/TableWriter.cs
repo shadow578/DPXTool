@@ -73,6 +73,11 @@ namespace DPXTool.Util
             //check at least one cell
             if (cells.Length <= 0) return;
 
+            //replace null strings with -
+            for (int i = 0; i < cells.Length; i++)
+                if (string.IsNullOrWhiteSpace(cells[i]))
+                    cells[i] = "-";
+
             //call format function
             if (Format == TableFormat.CSV)
                 await WriteCSVRowAsync(isHeader, cells);
