@@ -247,19 +247,14 @@ Licensed Categories:");
             #endregion
 
             #region write license details to file
-            TableWriter w = await InitTableWriter(options);
-            if (w != null)
-                using (w)
-                {
-                    //write license categories
-                    Console.WriteLine("writing to file...");
-                    await w.WriteRowAsync(true, "Node", "Category", "Consumed", "Licensed", "License Violation");
-                    foreach (LicenseCategory c in l.LicenseCategories)
-                        await w.WriteRowAsync(false, l.ServerNodeName, c.Name, c.Consumed.ToString(), c.Licensed.ToString(), c.IsLicenseViolated ? "YES" : "NO");
+            //write license categories
+            TableWriter w = new TableWriter();
+            w.WriteRow("Node", "Category", "Consumed", "Licensed", "License Violation");
+            foreach (LicenseCategory c in l.LicenseCategories)
+                w.WriteRow(l.ServerNodeName, c.Name, c.Consumed.ToString(), c.Licensed.ToString(), c.IsLicenseViolated ? "YES" : "NO");
 
-                    //end document
-                    await w.EndDocumentAsync();
-                }
+            //write file
+            await WriteTableToFile(options, w);
             #endregion
         }
 
@@ -354,32 +349,25 @@ Licensed Categories:");
                             else
                                 allVolsers[volser]++;
 
-                #region write volsers to console
-                Console.WriteLine($"Found {allVolsers.Count} used volsers (unified):");
+                //init table
+                TableWriter w = new TableWriter();
+
+                //write volsers categories
+                w.WriteRow("Volser", "Used by Jobs");
                 foreach (string volser in allVolsers.Keys)
-                    Console.WriteLine($" {volser} (used by {allVolsers[volser]} jobs)");
-                #endregion
+                    w.WriteRow(volser, allVolsers[volser].ToString());
 
-                #region write volsers to file
-                TableWriter w = await InitTableWriter(options);
-                if (w != null)
-                    using (w)
-                    {
-                        //write volsers categories
-                        Console.WriteLine("writing to file...");
-                        await w.WriteRowAsync(true, "Volser", "Used by Jobs");
-                        foreach (string volser in allVolsers.Keys)
-                            await w.WriteRowAsync(false, volser, allVolsers[volser].ToString());
-
-                        //end document
-                        await w.EndDocumentAsync();
-                    }
-                #endregion
+                //write table
+                w.WriteToConsole();
+                await WriteTableToFile(options, w);
             }
             else
             {
-                #region write to console
-                Console.WriteLine("ID\t| Name \t\t| Protocol \t| Type | Retention | RC | Volsers");
+                //init table
+                TableWriter w = new TableWriter();
+
+                //write license categories
+                w.WriteRow("Start Time", "End Time", "Duration", "ID", "Name", "Protocol", "Type", "Retention (days)", "RC", "Status", "Volsers Used");
                 foreach (JobInstance job in jobsAndVolsers.Keys)
                 {
                     //build volser string
@@ -388,37 +376,16 @@ Licensed Categories:");
                     if (volsers != null && volsers.Length > 0)
                         volsersStr = string.Join(", ", jobsAndVolsers[job]);
 
-                    Console.WriteLine($"{job.ID}\t| {job.DisplayName}\t\t| {job.JobType}\t| {job.RunType} | {job.Retention} | {job.ReturnCode} | {volsersStr}");
+                    w.WriteRow(job.StartTime.ToString(DATE_FORMAT), job.EndTime.ToString(DATE_FORMAT), TimeSpan.FromMilliseconds(job.RunDuration).ToString(),
+                        job.ID.ToString(), job.DisplayName,
+                        job.JobType.ToString(), job.RunType.ToString(), job.Retention.ToString(),
+                        job.ReturnCode.ToString(), job.GetStatus().ToString(),
+                        volsersStr);
                 }
-                #endregion
 
-                #region write jobs to file
-                TableWriter w = await InitTableWriter(options);
-                if (w != null)
-                    using (w)
-                    {
-                        //write license categories
-                        Console.WriteLine("writing to file...");
-                        await w.WriteRowAsync(true, "Start Time", "End Time", "Duration", "ID", "Name", "Protocol", "Type", "Retention (days)", "RC", "Status", "Volsers Used");
-                        foreach (JobInstance job in jobsAndVolsers.Keys)
-                        {
-                            //build volser string
-                            string[] volsers = jobsAndVolsers[job];
-                            string volsersStr = "-";
-                            if (volsers != null && volsers.Length > 0)
-                                volsersStr = string.Join(", ", jobsAndVolsers[job]);
-
-                            await w.WriteRowAsync(false, job.StartTime.ToString(DATE_FORMAT), job.EndTime.ToString(DATE_FORMAT), TimeSpan.FromMilliseconds(job.RunDuration).ToString(),
-                                job.ID.ToString(), job.DisplayName,
-                                job.JobType.ToString(), job.RunType.ToString(), job.Retention.ToString(),
-                                job.ReturnCode.ToString(), job.GetStatus().ToString(),
-                                volsersStr);
-                        }
-
-                        //end document
-                        await w.EndDocumentAsync();
-                    }
-                #endregion
+                //write table
+                w.WriteToConsole();
+                await WriteTableToFile(options, w);
             }
         }
 
@@ -447,28 +414,18 @@ Licensed Categories:");
             else
                 logs = await dpx.GetJobInstanceLogsAsync(options.JobInstanceID, options.LogStartIndex, options.LogCount);
 
-            #region write to console
-            Console.WriteLine("logs for job " + options.JobInstanceID);
-            Console.WriteLine(InstanceLogEntry.GetHeader());
+            //init table
+            TableWriter w = new TableWriter();
+
+            //write license categories
+            w.WriteRow("Source IP", "Time", "Module", "Message Code", "Message");
             foreach (InstanceLogEntry log in logs)
-                Console.WriteLine(log.ToString());
-            #endregion
+                w.WriteRow(log.SourceIP, log.Time.ToString(DATE_FORMAT), log.Module, log.MessageCode, log.Message);
 
-            #region write logs to file
-            TableWriter w = await InitTableWriter(options);
-            if (w != null)
-                using (w)
-                {
-                    //write license categories
-                    Console.WriteLine("writing to file...");
-                    await w.WriteRowAsync(true, "Source IP", "Time", "Module", "Message Code", "Message");
-                    foreach (InstanceLogEntry log in logs)
-                        await w.WriteRowAsync(false, log.SourceIP, log.Time.ToString(DATE_FORMAT), log.Module, log.MessageCode, log.Message);
-
-                    //end document
-                    await w.EndDocumentAsync();
-                }
-            #endregion
+            //write table
+            Console.WriteLine("logs for job " + options.JobInstanceID);
+            w.WriteToConsole();
+            await WriteTableToFile(options, w);
         }
 
         /// <summary>
@@ -486,27 +443,18 @@ Licensed Categories:");
             Console.WriteLine("query node groups...");
             NodeGroup[] groups = await dpx.GetNodeGroupsAsync();
 
-            #region write node groups to console
-            Console.WriteLine($"Found {groups.Length} node groups:");
+            //init table
+            TableWriter w = new TableWriter();
+
+            //write node groups
+            w.WriteRow("Group Name", "Comment", "Media Pool", "Cluster", "Creator", "Creation Time");
             foreach (NodeGroup g in groups)
-                Console.WriteLine($" {g.Name}");
-            #endregion
+                w.WriteRow(g.Name, g.Comment, g.MediaPool, g.ClusterName, g.Creator, g.CreationTime.ToString(DATE_FORMAT));
 
-            #region write node groups to file
-            TableWriter w = await InitTableWriter(options);
-            if (w != null)
-                using (w)
-                {
-                    //write node groups
-                    Console.WriteLine("writing to file...");
-                    await w.WriteRowAsync(true, "Group Name", "Comment", "Media Pool", "Cluster", "Creator", "Creation Time");
-                    foreach (NodeGroup g in groups)
-                        await w.WriteRowAsync(false, g.Name, g.Comment, g.MediaPool, g.ClusterName, g.Creator, g.CreationTime.ToString(DATE_FORMAT));
-
-                    //end document
-                    await w.EndDocumentAsync();
-                }
-            #endregion
+            //write table
+            Console.WriteLine($"Found {groups.Length} node groups:");
+            w.WriteToConsole();
+            await WriteTableToFile(options, w);
         }
 
         /// <summary>
@@ -528,28 +476,19 @@ Licensed Categories:");
             else
                 nodes = await dpx.GetNodesAsync(options.NodeGroup, options.NodeType);
 
-            #region write nodes to console
-            Console.WriteLine($"Found {nodes.Length} nodes:");
-            Console.WriteLine("Node Group \t| Node \t| Node Type \t| OS Name \t\t| OS Version");
+            //init table
+            TableWriter w = new TableWriter();
+
+            //write nodes
+            w.WriteRow("Node Group", "Node", "Server Name", "Node Type", "OS", "OS Name", "OS Version", "Creator", "Creation Time", "Comments");
             foreach (Node n in nodes)
-                Console.WriteLine($"{n.GroupName}\t| {n.Name}\t| {n.Type}\t| {n.OSDisplayName}\t| {n.OSVersion}");
-            #endregion
+                w.WriteRow(n.GroupName, n.Name, n.ServerName, n.Type, n.OSGroup.ToString(), n.OSDisplayName, n.OSVersion, n.Creator, n.CreationTime.ToString(DATE_FORMAT), n.Comment);
 
-            #region write nodes to file
-            TableWriter w = await InitTableWriter(options);
-            if (w != null)
-                using (w)
-                {
-                    //write nodes
-                    Console.WriteLine("writing to file...");
-                    await w.WriteRowAsync(true, "Node Group", "Node", "Server Name", "Node Type", "OS", "OS Name", "OS Version", "Creator", "Creation Time", "Comments");
-                    foreach (Node n in nodes)
-                        await w.WriteRowAsync(false, n.GroupName, n.Name, n.ServerName, n.Type, n.OSGroup.ToString(), n.OSDisplayName, n.OSVersion, n.Creator, n.CreationTime.ToString(DATE_FORMAT), n.Comment);
 
-                    //end document
-                    await w.EndDocumentAsync();
-                }
-            #endregion
+            //write table
+            Console.WriteLine($"Found {nodes.Length} nodes:");
+            w.WriteToConsole();
+            await WriteTableToFile(options, w);
         }
 
         /// <summary>
@@ -618,15 +557,15 @@ Licensed Categories:");
         }
 
         /// <summary>
-        /// initialize the tablewriter based on the options passed
+        /// write the table to a file defined by options
         /// </summary>
         /// <param name="options">the base options</param>
-        /// <returns>the tablewriter, or null if not enabled by options</returns>
-        static async Task<TableWriter> InitTableWriter(BaseOptions options)
+        /// <param name="writer">the table writer to write to file</param>
+        static async Task WriteTableToFile(BaseOptions options, TableWriter writer)
         {
             //check writer is enabled
             if (string.IsNullOrWhiteSpace(options.OutputFile))
-                return null;
+                return;
 
             //get path and check if is valid
             string path = options.OutputFile;
@@ -638,30 +577,25 @@ Licensed Categories:");
             if (string.IsNullOrWhiteSpace(ext))
             {
                 Console.WriteLine("output file is is no file!");
-                return null;
+                return;
             }
 
-            //init the writer
-            TableWriter writer;
+            //write to file
+            Console.WriteLine("Writing to " + path);
             ext = ext.ToLower().TrimStart('.');
             switch (ext)
             {
                 case "html":
                 case "htm":
-                    writer = new TableWriter(path, TableWriter.TableFormat.HTML);
+                    await writer.WriteToFileAsync(path, TableWriter.TableFormat.HTML);
                     break;
                 case "csv":
-                    writer = new TableWriter(path, TableWriter.TableFormat.CSV);
+                    await writer.WriteToFileAsync(path, TableWriter.TableFormat.CSV);
                     break;
                 default:
                     Console.WriteLine("unknown file type: " + ext + ". Supported types are html and csv");
-                    return null;
+                    break;
             }
-
-            //call BeginDocument on the writer
-            Console.WriteLine("Writing to " + path);
-            await writer.BeginDocumentAsync();
-            return writer;
         }
 
         /// <summary>

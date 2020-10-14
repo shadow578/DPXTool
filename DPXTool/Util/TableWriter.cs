@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -8,7 +10,7 @@ namespace DPXTool.Util
     /// <summary>
     /// a writer that can write tables to csv and html files
     /// </summary>
-    public class TableWriter : IDisposable
+    public class TableWriter
     {
         /// <summary>
         /// the format of a table
@@ -20,96 +22,135 @@ namespace DPXTool.Util
         }
 
         /// <summary>
-        /// The file to write to
+        /// internal table structure to print later
         /// </summary>
-        public string FilePath { get; private set; }
-
-        /// <summary>
-        /// the format to write in
-        /// </summary>
-        public TableFormat Format { get; private set; }
-
-        /// <summary>
-        /// writer that writes to the output file
-        /// </summary>
-        StreamWriter o;
-
-        /// <summary>
-        /// initialize the writer
-        /// </summary>
-        /// <param name="filepath">the file to write to</param>
-        /// <param name="format">the format to write in</param>
-        public TableWriter(string filepath, TableFormat format)
-        {
-            FilePath = filepath;
-            Format = format;
-        }
-
-        /// <summary>
-        /// begin writing the document
-        /// </summary>
-        public async Task BeginDocumentAsync()
-        {
-            //create file
-            o = File.CreateText(FilePath);
-
-            //call format function 
-            if (Format == TableFormat.CSV)
-                await BeginCSVDocumentAsync();
-            else
-                await BeginHTMLDocumentAsync();
-        }
+        List<string[]> table = new List<string[]>();
 
         /// <summary>
         /// write a row of cells to the document
         /// </summary>
-        /// <param name="isHeader">is this the first (header) row?</param>
         /// <param name="cells">the cells to write</param>
-        public async Task WriteRowAsync(bool isHeader = false, params string[] cells)
+        public void WriteRow(params string[] cells)
         {
-            //check writer is ready
-            if (o == null) return;
+            //check lenght is right
+            if (table.Count > 0 && table[0].Length != cells.Length)
+                throw new InvalidDataException("Count of cells has to be the same for all rows of the table!");
 
-            //check at least one cell
-            if (cells.Length <= 0) return;
-
-            //replace null strings with -
-            for (int i = 0; i < cells.Length; i++)
-                if (string.IsNullOrWhiteSpace(cells[i]))
-                    cells[i] = "-";
-
-            //call format function
-            if (Format == TableFormat.CSV)
-                await WriteCSVRowAsync(isHeader, cells);
-            else
-                await WriteHTMLRowAsync(isHeader, cells);
+            //add cells to table
+            table.Add(cells);
         }
 
         /// <summary>
-        /// end writing the document and close it
+        /// write the table to the local console
         /// </summary>
-        public async Task EndDocumentAsync()
+        /// <param name="trunctateWidth">should the table width be limited to the console width if it does not fit?</param>
+        /// <param name="autoPromptWidth">should the user be automatically prompted to adjust the console with to fit the table?</param>
+        public void WriteToConsole(bool trunctateWidth = true, bool autoPromptWidth = true)
         {
-            //check writer is ready
-            if (o == null) return;
+            //check there is at least one row to write
+            if (table.Count <= 0) return;
 
-            //call format function
-            if (Format == TableFormat.CSV)
-                await EndCSVDocumentAsync();
-            else
-                await EndHTMLDocumentAsync();
+            //pre- calculate width of each column
+            int[] columnWidth = new int[table.First().Length];
+            for (int row = 0; row < table.Count; row++)
+                for (int column = 0; column < table[row].Length; column++)
+                {
+                    int colWidth = table[row][column].Length;
+                    if (columnWidth[column] < colWidth)
+                        columnWidth[column] = colWidth;
+                }
 
-            //close document
-            o?.Flush();
-            o?.Close();
-            o = null;
+            if (autoPromptWidth)
+            {
+                //calculate total table width
+                int tableWidth = -3;
+                foreach (int w in columnWidth)
+                    tableWidth += w + 3;
+
+                //limit table width to maximum window width
+                if (tableWidth > Console.LargestWindowWidth)
+                    tableWidth = Console.LargestWindowWidth;
+
+                //check width matches current console, if not prompt for adjustment
+                if (tableWidth >= Console.WindowWidth)
+                {
+                    Console.WriteLine("Please adjust window to fit indicator without line break, then press enter");
+                    Console.Write("|");
+                    for (int i = 0; i < tableWidth; i++)
+                        Console.Write("-");
+                    Console.WriteLine("|");
+                    Console.ReadLine();
+                }
+            }
+
+            //write table to console
+            for (int row = 0; row < table.Count; row++)
+            {
+                //build row string
+                StringBuilder rowB = new StringBuilder();
+                for (int column = 0; column < table[row].Length; column++)
+                    rowB.Append(Pad(table[row][column], columnWidth[column]) + " | ");
+
+                //trunctate row string if needed
+                if (rowB.Length >= Console.WindowWidth && trunctateWidth)
+                    rowB.Length = Console.WindowWidth - 1;
+
+                //write row
+                Console.WriteLine(rowB.ToString());
+            }
+        }
+
+        /// <summary>
+        /// write the table to a file
+        /// </summary>
+        /// <param name="filePath">the file to write to</param>
+        /// <param name="format">the format of the file</param>
+        public async Task WriteToFileAsync(string filePath, TableFormat format)
+        {
+            //check there is at least one row to write
+            if (table.Count <= 0) return;
+
+            //create file
+            using (StreamWriter w = File.CreateText(filePath))
+            {
+                //begin document
+                if (format == TableFormat.CSV)
+                    await BeginCSVDocumentAsync(w);
+                else
+                    await BeginHTMLDocumentAsync(w);
+
+                //write table
+                for (int r = 0; r < table.Count; r++)
+                {
+                    //replace null strings with -
+                    for (int c = 0; c < table[r].Length; c++)
+                        if (string.IsNullOrWhiteSpace(table[r][c]))
+                            table[r][c] = "-";
+
+                    //write each row
+                    if (format == TableFormat.CSV)
+                        await WriteCSVRowAsync(w, r == 0, table[r]);
+                    else
+                        await WriteHTMLRowAsync(w, r == 0, table[r]);
+                }
+
+                //end document
+                if (format == TableFormat.CSV)
+                    await EndCSVDocumentAsync(w);
+                else
+                    await EndHTMLDocumentAsync(w);
+
+                //flush and close
+                await w.FlushAsync();
+            }
         }
 
         #region CSV
         /// <summary>
         /// begin writing the document
         /// </summary>
-        async Task BeginCSVDocumentAsync()
+        /// <param name="fileOut">the writer to write to</param>
+        async Task BeginCSVDocumentAsync(StreamWriter fileOut)
         {
             //no headers needed
             await Task.CompletedTask;
@@ -120,7 +161,8 @@ namespace DPXTool.Util
         /// </summary>
         /// <param name="isHeader">is this the first (header) row?</param>
         /// <param name="cells">the cells to write</param>
-        async Task WriteCSVRowAsync(bool isHeader, params string[] cells)
+        /// <param name="fileOut">the writer to write to</param>
+        async Task WriteCSVRowAsync(StreamWriter fileOut, bool isHeader, params string[] cells)
         {
             //build line (header rows are not different)
             StringBuilder csv = new StringBuilder();
@@ -128,13 +170,14 @@ namespace DPXTool.Util
                 csv.Append(cell).Append(";");
 
             //write to file
-            await o.WriteLineAsync(csv);
+            await fileOut.WriteLineAsync(csv);
         }
 
         /// <summary>
         /// end writing the document and close it
         /// </summary>
-        async Task EndCSVDocumentAsync()
+        /// <param name="fileOut">the writer to write to</param>
+        async Task EndCSVDocumentAsync(StreamWriter fileOut)
         {
             //no footer needed
             await Task.CompletedTask;
@@ -145,7 +188,8 @@ namespace DPXTool.Util
         /// <summary>
         /// begin writing the document
         /// </summary>
-        async Task BeginHTMLDocumentAsync()
+        /// <param name="fileOut">the writer to write to</param>
+        async Task BeginHTMLDocumentAsync(StreamWriter fileOut)
         {
             string html = @"
 <!DOCTYPE html>
@@ -177,7 +221,7 @@ namespace DPXTool.Util
 <body>
 <table>
 <!--before-->";
-            await o.WriteAsync(html);
+            await fileOut.WriteAsync(html);
         }
 
         /// <summary>
@@ -185,7 +229,8 @@ namespace DPXTool.Util
         /// </summary>
         /// <param name="isHeader">is this the first (header) row?</param>
         /// <param name="cells">the cells to write</param>
-        async Task WriteHTMLRowAsync(bool isHeader, params string[] cells)
+        /// <param name="fileOut">the writer to write to</param>
+        async Task WriteHTMLRowAsync(StreamWriter fileOut, bool isHeader, params string[] cells)
         {
             //get table data tag (th or td)
             string td = isHeader ? "th" : "td";
@@ -198,30 +243,43 @@ namespace DPXTool.Util
             html.AppendLine("</tr>");
 
             //write to file
-            await o.WriteAsync(html);
+            await fileOut.WriteAsync(html);
         }
 
         /// <summary>
         /// end writing the document and close it
         /// </summary>
-        async Task EndHTMLDocumentAsync()
+        /// <param name="fileOut">the writer to write to</param>
+        async Task EndHTMLDocumentAsync(StreamWriter fileOut)
         {
             string html = @"
 <!--after-->
 </table>
 </body>
 ";
-            await o.WriteAsync(html);
+            await fileOut.WriteAsync(html);
         }
         #endregion
 
         /// <summary>
-        /// dispose the writer and close the file
+        /// pad a string to the defined lenght
         /// </summary>
-        public void Dispose()
+        /// <param name="str">the string to pad</param>
+        /// <param name="padToLength">the length to pad to</param>
+        /// <param name="padChar">char to pad with</param>
+        /// <returns>the padded string</returns>
+        string Pad(string str, int padToLength, char padChar = ' ')
         {
-            o?.Flush();
-            o?.Dispose();
+            //check string needs padding
+            if (str.Length >= padToLength)
+                return str;
+
+            //pad string
+            StringBuilder b = new StringBuilder(str);
+            for (int i = 0; i < (padToLength - str.Length); i++)
+                b.Append(padChar);
+            return b.ToString();
         }
+
     }
 }

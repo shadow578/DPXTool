@@ -151,7 +151,7 @@ Licensed:");
 
             //print node grups
             Console.WriteLine($"found {groups.Length} node groups:");
-            foreach(NodeGroup group in groups)
+            foreach (NodeGroup group in groups)
                 Console.WriteLine($" {group.Name} - created by {group.Creator}");
 
             //get all nodes
@@ -159,7 +159,7 @@ Licensed:");
 
             //print nodes
             Console.WriteLine($"found {nodes.Length} nodes:");
-            foreach(Node node in nodes)
+            foreach (Node node in nodes)
                 Console.WriteLine($" {node.Name} in group {node.GroupName} running {node.OSDisplayName}");
 
             //get nodes in group
