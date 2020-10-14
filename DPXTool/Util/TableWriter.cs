@@ -50,6 +50,12 @@ namespace DPXTool.Util
             //check there is at least one row to write
             if (table.Count <= 0) return;
 
+            //replace null strings with -
+            for (int r = 0; r < table.Count; r++)
+                for (int c = 0; c < table[r].Length; c++)
+                    if (string.IsNullOrWhiteSpace(table[r][c]))
+                        table[r][c] = "-";
+
             //pre- calculate width of each column
             int[] columnWidth = new int[table.First().Length];
             for (int row = 0; row < table.Count; row++)
