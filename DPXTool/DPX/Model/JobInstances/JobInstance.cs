@@ -204,5 +204,18 @@ namespace DPXTool.DPX.Model.JobInstances
 
             return (JobStatus)status;
         }
+
+        /// <summary>
+        /// check if the object is equal to this job
+        /// </summary>
+        /// <param name="obj">the object to check</param>
+        /// <returns>is equal?</returns>
+        public override bool Equals(object obj)
+        {
+            if (obj is JobInstance job)
+                return job.ID.Equals(ID);
+            else
+                return base.Equals(obj);
+        }
     }
 }

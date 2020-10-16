@@ -120,6 +120,12 @@ namespace DPXTool
             /// </summary>
             [Option("only-volsers", Required = false, HelpText = "only list used volsers in the report?", Default = false)]
             public bool ShouldOnlyListVolsers { get; set; }
+
+            /// <summary>
+            /// should only jobs that are still in retention be listed?
+            /// </summary>
+            [Option("only-in-retention", Required = false, HelpText = "only include jobs that are still in retention", Default = false)]
+            public bool ShouldOnlyListInRetention { get; set; }
         }
 
         /// <summary>
@@ -293,10 +299,11 @@ Licensed Categories:");
 
             //get jobs
             Console.WriteLine("query jobs...");
-            JobInstance[] jobs = await dpx.GetJobInstancesAsync(filters.ToArray());
+            List<JobInstance> jobs = new List<JobInstance>();
+            jobs.AddRange(await dpx.GetJobInstancesAsync(filters.ToArray()));
 
             //abort if no jobs were found
-            if (jobs == null || jobs.Length <= 0)
+            if (jobs == null || jobs.Count <= 0)
             {
                 Console.WriteLine("No jobs found!");
                 return;
@@ -320,7 +327,23 @@ Licensed Categories:");
             //filter jobs by status (no builtin way)
             List<JobRunType> filterRunTypes = options.FilterJobRunTypes.ToList();
             if (filterRunTypes.Count > 0)
-                jobs = jobs.Where((job) => job.RunType.HasValue && filterRunTypes.Contains(job.RunType.Value)).ToArray();
+                jobs = jobs.Where((job) => job.RunType.HasValue && filterRunTypes.Contains(job.RunType.Value)).ToList();
+
+            //filter jobs that are already not in retention
+            if (options.ShouldOnlyListInRetention)
+                foreach (JobInstance job in jobs)
+                    if ((DateTime.Now - job.EndTime).TotalDays >= job.Retention)
+                    {
+                        Console.WriteLine($"Job {job.ID} is out of retention!");
+                        jobs.Remove(job);
+                    }
+
+            //check there are still jobs
+            if (jobs.Count <= 0)
+            {
+                Console.WriteLine("no jobs found!");
+                return;
+            }
 
             //query volsers
             //jobsAndVolsers is also used when volsers are not queried to simplify the code *a bit*
@@ -329,7 +352,7 @@ Licensed Categories:");
             foreach (JobInstance job in jobs)
                 if (options.ShouldIncludeVolsers || options.ShouldOnlyListVolsers)
                 {
-                    Console.WriteLine($"({++i}/{jobs.Length}) query volsers for job {job.ID}");
+                    Console.WriteLine($"({++i}/{jobs.Count}) query volsers for job {job.ID}");
                     string[] volsers = await job.GetVolsersUsed(false);
                     jobsAndVolsers.Add(job, volsers);
                 }
@@ -367,7 +390,7 @@ Licensed Categories:");
                 TableWriter w = new TableWriter();
 
                 //write license categories
-                w.WriteRow("Start Time", "End Time", "Duration", "ID", "Name", "Protocol", "Type", "Retention (days)", "RC", "Status", "Volsers Used");
+                w.WriteRow("Start Time", "End Time", "Duration", "ID", "Name", "Protocol", "Type", "Retention (days)", "Days since run", "RC", "Status", "Volsers Used");
                 foreach (JobInstance job in jobsAndVolsers.Keys)
                 {
                     //build volser string
@@ -379,6 +402,7 @@ Licensed Categories:");
                     w.WriteRow(job.StartTime.ToString(DATE_FORMAT), job.EndTime.ToString(DATE_FORMAT), TimeSpan.FromMilliseconds(job.RunDuration).ToString(),
                         job.ID.ToString(), job.DisplayName,
                         job.JobType.ToString(), job.RunType.ToString(), job.Retention.ToString(),
+                        (DateTime.Now - job.EndTime).TotalDays.ToString("0"),
                         job.ReturnCode.ToString(), job.GetStatus().ToString(),
                         volsersStr);
                 }
@@ -387,6 +411,64 @@ Licensed Categories:");
                 w.WriteToConsole();
                 await WriteTableToFile(options, w);
             }
+
+            #region print last backup run times
+            //check only instances of one job were found (by filter or coincidence i guess :P)
+            //get latest backup jobs by type
+            bool onlyOneJob = true;
+            string jobName = string.Empty;
+            JobInstance lastBase = null,
+                lastDifr = null,
+                lastIncr = null;
+            foreach (JobInstance job in jobs)
+            {
+                //check only instances of one job
+                if (string.IsNullOrWhiteSpace(jobName))
+                    jobName = job.Name;
+                else if (!jobName.Equals(job.Name))
+                {
+                    onlyOneJob = false;
+                    break;
+                }
+
+                //get last jobs
+                switch (job.RunType)
+                {
+                    case JobRunType.BASE:
+                        if (lastBase == null || job.EndTime > lastBase.EndTime)
+                            lastBase = job;
+                        break;
+                    case JobRunType.DIFR:
+                        if (lastDifr == null || job.EndTime > lastDifr.EndTime)
+                            lastDifr = job;
+                        break;
+                    case JobRunType.INCR:
+                        if (lastIncr == null || job.EndTime > lastIncr.EndTime)
+                            lastIncr = job;
+                        break;
+                }
+            }
+
+            //print to ui if only one job
+            if (onlyOneJob)
+            {
+                Console.WriteLine(@$"last backup runs{(options.ShouldOnlyListInRetention ? " still in retention" : "")}:");
+                if (lastBase != null)
+                    Console.WriteLine($@" BASE: {lastBase.ID} finished {(DateTime.Now - lastBase.EndTime).TotalDays:0} days ago on {lastBase.EndTime.ToString(DATE_FORMAT)}");
+                else
+                    ConsoleWriteColored(" no BASE backup found!", ConsoleColor.Red);
+                if (lastDifr != null)
+                    Console.WriteLine($@" DIFR: {lastDifr.ID} finished {(DateTime.Now - lastDifr.EndTime).TotalDays:0} days ago on {lastDifr.EndTime.ToString(DATE_FORMAT)}");
+                else
+                    ConsoleWriteColored(" no DIFR backup found!", ConsoleColor.Red);
+                if (lastIncr != null)
+                    Console.WriteLine($@" INCR: {lastIncr.ID} finished {(DateTime.Now - lastIncr.EndTime).TotalDays:0} days ago on {lastIncr.EndTime.ToString(DATE_FORMAT)}");
+                else
+                    ConsoleWriteColored(" no INCR backup found!", ConsoleColor.Red);
+            }
+            else
+                Console.WriteLine("instances of more than one job were found, last run statistics not available.");
+            #endregion
         }
 
         /// <summary>
