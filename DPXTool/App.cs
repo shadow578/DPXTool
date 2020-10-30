@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace DPXTool
@@ -126,6 +127,12 @@ namespace DPXTool
             /// </summary>
             [Option("only-in-retention", Required = false, HelpText = "only include jobs that are still in retention", Default = false)]
             public bool ShouldOnlyListInRetention { get; set; }
+
+            /// <summary>
+            /// timeout for job volser query
+            /// </summary>
+            [Option("volser-query-timeout", Required = false, HelpText = "timeout for getting volsers of a job instance; milliseconds", Default = -1)]
+            public long VolserQueryTimeout { get; set; }
         }
 
         /// <summary>
@@ -231,7 +238,6 @@ namespace DPXTool
         static async Task PrintLicenseMain(PrintLicenseOptions options)
         {
             //initialize dpx client
-            CheckPassword(options);
             if (!await InitClient(options))
                 return;
 
@@ -271,7 +277,6 @@ Licensed Categories:");
         static async Task GetJobsMain(GetJobsOptions options)
         {
             //initialize dpx client
-            CheckPassword(options);
             if (!await InitClient(options))
                 return;
 
@@ -353,7 +358,7 @@ Licensed Categories:");
                 if (options.ShouldIncludeVolsers || options.ShouldOnlyListVolsers)
                 {
                     Console.WriteLine($"({++i}/{jobs.Count}) query volsers for job {job.ID}");
-                    string[] volsers = await job.GetVolsersUsed(false);
+                    string[] volsers = await job.GetVolsersUsed(false, options.VolserQueryTimeout);
                     jobsAndVolsers.Add(job, volsers);
                 }
                 else
@@ -478,7 +483,6 @@ Licensed Categories:");
         static async Task GetLogsMain(GetLogsOptions options)
         {
             //initialize dpx client
-            CheckPassword(options);
             if (!await InitClient(options))
                 return;
 
@@ -517,7 +521,6 @@ Licensed Categories:");
         static async Task GetNodeGroupsMain(GetNodeGroupsOptions options)
         {
             //initialize dpx client
-            CheckPassword(options);
             if (!await InitClient(options))
                 return;
 
@@ -546,7 +549,6 @@ Licensed Categories:");
         static async Task GetNodesMain(GetNodesOptions options)
         {
             //initialize dpx client
-            CheckPassword(options);
             if (!await InitClient(options))
                 return;
 
@@ -574,57 +576,42 @@ Licensed Categories:");
         }
 
         /// <summary>
-        /// check the user entered the password option. if not, show a interactive prompt
-        /// also correct user not adding http:// before the host name
-        /// </summary>
-        /// <param name="options">the options that were read</param>
-        static void CheckPassword(BaseOptions options)
-        {
-            //add http to hostname if not already
-            if (!options.DPXHost.StartsWith("http") && !options.DPXHost.StartsWith("https"))
-                options.DPXHost = "http://" + options.DPXHost;
-
-            //check if password was already entered
-            if (!string.IsNullOrWhiteSpace(options.Password))
-                return;
-
-            //prompt user to enter password
-            Console.Write($"Password for {options.Username}@{options.DPXHost}: ");
-            string pw = "";
-            ConsoleKeyInfo key;
-            while ((key = Console.ReadKey(true)).Key != ConsoleKey.Enter)
-            {
-                if (key.Key == ConsoleKey.Backspace)
-                {
-                    pw = pw.Substring(0, pw.Length - 1);
-                    Console.Write("\b \b");
-                }
-                else
-                {
-                    pw += key.KeyChar;
-                    Console.Write("*");
-                }
-            }
-
-            Console.WriteLine();
-            options.Password = pw;
-        }
-
-        /// <summary>
         /// initializes and logs in the <see cref="dpx"/>
         /// </summary>
         /// <param name="options">base options from the user</param>
         /// <returns>was init and login ok?</returns>
         static async Task<bool> InitClient(BaseOptions options)
         {
+            //add http to hostname if not already
+            if (!options.DPXHost.StartsWith("http") && !options.DPXHost.StartsWith("https"))
+                options.DPXHost = "http://" + options.DPXHost;
+
             //init client
             dpx = new DPXClient(options.DPXHost, options.DebugNetworkRequests);
+            dpx.DPXApiError += OnDPXApiError;
+
+            //get login password
+            string pw = options.Password;
+            if (string.IsNullOrWhiteSpace(pw))
+                pw = ShowPasswordPrompt($"Password for {options.Username}@{options.DPXHost}: ");
 
             //log client in
+            return await TryLoginAsync(options.Username, pw);
+        }
+
+        /// <summary>
+        /// try to login the dpx client using username and password
+        /// </summary>
+        /// <param name="username">the username to login with</param>
+        /// <param name="password">the password to login with</param>
+        /// <returns>was login ok?</returns>
+        static async Task<bool> TryLoginAsync(string username, string password)
+        {
+            //login client
             bool ok;
             try
             {
-                ok = await dpx.LoginAsync(options.Username, options.Password);
+                ok = await dpx.LoginAsync(username, password);
             }
             catch (ApiException)
             {
@@ -634,8 +621,41 @@ Licensed Categories:");
             if (ok)
                 Console.WriteLine("Login ok");
             else
-                Console.WriteLine($"Failed to log client in with {options.Username}@{options.DPXHost}! Is the password correct?");
+                Console.WriteLine($"Failed to log client with username {username}! Is the password correct?");
+
             return ok;
+        }
+
+        /// <summary>
+        /// show a password prompt
+        /// </summary>
+        /// <param name="message">the message to show on the prompt</param>
+        /// <returns>the password entered</returns>
+        static string ShowPasswordPrompt(string message)
+        {
+            //prompt user to enter password
+            Console.Write(message);
+            string pw = "";
+            ConsoleKeyInfo key;
+            while ((key = Console.ReadKey(true)).Key != ConsoleKey.Enter)
+            {
+                if (key.Key == ConsoleKey.Backspace)
+                {
+                    if (pw.Length > 0)
+                    {
+                        pw = pw.Substring(0, pw.Length - 1);
+                        Console.Write("\b \b");
+                    }
+                }
+                else
+                {
+                    pw += key.KeyChar;
+                    Console.Write("*");
+                }
+            }
+
+            Console.WriteLine();
+            return pw;
         }
 
         /// <summary>
@@ -699,6 +719,25 @@ Licensed Categories:");
             //reset color
             if (useColor)
                 Console.ForegroundColor = original;
+        }
+
+        /// <summary>
+        /// a event invoked when a dpx api error occurs
+        /// </summary>
+        /// <param name="e">the exeption thrown by the api</param>
+        /// <returns>should the call be retired? if false, the call is aborted and the exeption is thrown</returns>
+        static bool OnDPXApiError(ApiException e)
+        {
+            //check if 401 unauthentificated
+            if (e.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                //re- login, token may have expired
+                string pw = ShowPasswordPrompt($"re-enter password for {dpx.LoggedInUser}@{dpx.DPXHost}: ");
+                return TryLoginAsync(dpx.LoggedInUser, pw).GetAwaiter().GetResult();
+            }
+
+            //dont handle any other errors
+            return false;
         }
     }
 }

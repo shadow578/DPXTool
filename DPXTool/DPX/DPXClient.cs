@@ -1,5 +1,4 @@
-﻿using CommandLine;
-using DPXTool.DPX.Model.Common;
+﻿using DPXTool.DPX.Model.Common;
 using DPXTool.DPX.Model.JobInstances;
 using DPXTool.DPX.Model.License;
 using DPXTool.DPX.Model.Login;
@@ -9,6 +8,7 @@ using Newtonsoft.Json;
 using Refit;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -21,6 +21,24 @@ namespace DPXTool.DPX
     /// </summary>
     public class DPXClient
     {
+        /// <summary>
+        /// a event invoked when a api error occurs (unauthentificated)
+        /// 
+        /// P1 (ApiException): the exeption thrown by the api
+        /// R  (bool)        : should the call be retired? if false, the call is aborted and the exeption is thrown
+        /// </summary>
+        public event Func<ApiException, bool> DPXApiError;
+
+        /// <summary>
+        /// The dpx host this clients queries
+        /// </summary>
+        public string DPXHost { get; set; }
+
+        /// <summary>
+        /// the username of the user logged in currently
+        /// </summary>
+        public string LoggedInUser { get; set; }
+
         /// <summary>
         /// Dpx api instance using ReFit
         /// </summary>
@@ -79,6 +97,9 @@ namespace DPXTool.DPX
             {
                 dpx = RestService.For<DPXApi>(host);
             }
+
+            //set host
+            DPXHost = host;
         }
 
         /// <summary>
@@ -93,20 +114,24 @@ namespace DPXTool.DPX
             //check state first
             ThrowIfInvalidState(false);
 
-            //call api
-            LoginResponse response = await dpx.Login(new LoginRequest()
+            return await TryAndRetry(async () =>
             {
-                Username = username,
-                Password = password
+                //call api
+                LoginResponse response = await dpx.Login(new LoginRequest()
+                {
+                    Username = username,
+                    Password = password
+                });
+
+                //check response is ok
+                if (response == null || string.IsNullOrWhiteSpace(response.Token))
+                    return false;
+
+                //login ok
+                LoggedInUser = username;
+                rawToken = response.Token;
+                return true;
             });
-
-            //check response is ok
-            if (response == null || string.IsNullOrWhiteSpace(response.Token))
-                return false;
-
-            //login ok
-            rawToken = response.Token;
-            return true;
         }
 
         /// <summary>
@@ -118,10 +143,13 @@ namespace DPXTool.DPX
             //check state is valid and authentificated
             ThrowIfInvalidState();
 
-            //send request
-            LicenseResponse response = await dpx.GetLicense(Token);
-            response.SourceClient = this;
-            return response;
+            return await TryAndRetry(async () =>
+            {
+                //send request
+                LicenseResponse response = await dpx.GetLicense(Token);
+                response.SourceClient = this;
+                return response;
+            });
         }
 
         /// <summary>
@@ -134,14 +162,17 @@ namespace DPXTool.DPX
             //check state
             ThrowIfInvalidState();
 
-            //send request
-            JobInstance[] jobs = await dpx.GetJobInstances(Token, JSONSerialize(filters));
+            return await TryAndRetry(async () =>
+            {
+                //send request
+                JobInstance[] jobs = await dpx.GetJobInstances(Token, JSONSerialize(filters));
 
-            //set client reference in each job
-            foreach (JobInstance job in jobs)
-                job.SourceClient = this;
+                //set client reference in each job
+                foreach (JobInstance job in jobs)
+                    job.SourceClient = this;
 
-            return jobs;
+                return jobs;
+            });
         }
 
         /// <summary>
@@ -157,13 +188,16 @@ namespace DPXTool.DPX
             //check state
             ThrowIfInvalidState();
 
-            //get logs
-            InstanceLogEntry[] logs = await dpx.GetLogEntries(Token, jobInstanceID, startIndex, count,
-                                                                filters.Length == 0 ? null : JSONSerialize(filters));
-            foreach (InstanceLogEntry log in logs)
-                log.SourceClient = this;
+            return await TryAndRetry(async () =>
+            {
+                //get logs
+                InstanceLogEntry[] logs = await dpx.GetLogEntries(Token, jobInstanceID, startIndex, count,
+                                                                    filters.Length == 0 ? null : JSONSerialize(filters));
+                foreach (InstanceLogEntry log in logs)
+                    log.SourceClient = this;
 
-            return logs;
+                return logs;
+            });
         }
 
         /// <summary>
@@ -171,21 +205,32 @@ namespace DPXTool.DPX
         /// </summary>
         /// <param name="jobInstanceID">the job instance to get logs of</param>
         /// <param name="batchSize">how many logs to load at once</param>
+        /// <param name="timeout">timeout to get job logs, in milliseconds. if the timeout is <= 0, no timeout is used</param>
         /// <param name="filters">filters to apply to the logs. WARNING: this is more inofficial functionality</param>
         /// <returns>the list of all log entries found</returns>
-        public async Task<InstanceLogEntry[]> GetAllJobInstanceLogsAsync(long jobInstanceID, long batchSize = 500, params FilterItem[] filters)
+        public async Task<InstanceLogEntry[]> GetAllJobInstanceLogsAsync(long jobInstanceID, long batchSize = 500, long timeout = -1, params FilterItem[] filters)
         {
             //check state
             ThrowIfInvalidState();
+
+            //prepare stopwatch for timeout
+            Stopwatch timeoutWatch = new Stopwatch();
+            timeoutWatch.Start();
 
             //get all logs, 500 at a time
             List<InstanceLogEntry> logs = new List<InstanceLogEntry>();
             InstanceLogEntry[] currentBatch;
             do
             {
+                //get job batch
                 currentBatch = await GetJobInstanceLogsAsync(jobInstanceID, logs.Count, batchSize, filters);
                 logs.AddRange(currentBatch);
+
+                //check timeout
+                if (timeout > 0 && timeoutWatch.ElapsedMilliseconds >= timeout)
+                    break;
             } while (currentBatch.Length >= batchSize);
+            timeoutWatch.Stop();
             return logs.ToArray();
         }
 
@@ -204,9 +249,11 @@ namespace DPXTool.DPX
                 return null;
 
             string statusSegment = result.Segments.Last();
-
-            //invoke api
-            return await dpx.GetStatusInfo(statusSegment);
+            return await TryAndRetry(async () =>
+            {
+                //invoke api
+                return await dpx.GetStatusInfo(statusSegment);
+            });
         }
 
         /// <summary>
@@ -219,14 +266,17 @@ namespace DPXTool.DPX
             //check state
             ThrowIfInvalidState();
 
-            //query node group
-            NodeGroup group = await dpx.GetNodeGroup(Token, nodeGroupName);
+            return await TryAndRetry(async () =>
+            {
+                //query node group
+                NodeGroup group = await dpx.GetNodeGroup(Token, nodeGroupName);
 
-            //set client reference in group
-            if (group != null)
-                group.SourceClient = this;
+                //set client reference in group
+                if (group != null)
+                    group.SourceClient = this;
 
-            return group;
+                return group;
+            });
         }
 
         /// <summary>
@@ -238,14 +288,17 @@ namespace DPXTool.DPX
             //check state
             ThrowIfInvalidState();
 
-            //query node groups
-            NodeGroup[] groups = await dpx.GetNodeGroups(Token);
+            return await TryAndRetry(async () =>
+            {
+                //query node groups
+                NodeGroup[] groups = await dpx.GetNodeGroups(Token);
 
-            //set client reference in all groups
-            foreach (NodeGroup group in groups)
-                group.SourceClient = this;
+                //set client reference in all groups
+                foreach (NodeGroup group in groups)
+                    group.SourceClient = this;
 
-            return groups;
+                return groups;
+            });
         }
 
         /// <summary>
@@ -260,14 +313,17 @@ namespace DPXTool.DPX
             //check state
             ThrowIfInvalidState();
 
-            //get nodes
-            Node[] nodes = await dpx.GetNodes(Token, nodeGroup, nodeType);
+            return await TryAndRetry(async () =>
+            {
+                //get nodes
+                Node[] nodes = await dpx.GetNodes(Token, nodeGroup, nodeType);
 
-            //set client reference in all nodes
-            foreach (Node node in nodes)
-                node.SourceClient = this;
+                //set client reference in all nodes
+                foreach (Node node in nodes)
+                    node.SourceClient = this;
 
-            return nodes;
+                return nodes;
+            });
         }
 
         /// <summary>
@@ -294,6 +350,31 @@ namespace DPXTool.DPX
         string JSONSerialize<T>(T obj)
         {
             return JsonConvert.SerializeObject(obj);
+        }
+
+        /// <summary>
+        /// try a api call, catch ApiExceptions and use DPXApiError event to handle them
+        /// </summary>
+        /// <typeparam name="T">the return type of the function</typeparam>
+        /// <param name="func">the function to try</param>
+        /// <returns>the return value of the function call</returns>
+        async Task<T> TryAndRetry<T>(Func<Task<T>> func)
+        {
+            while (true)
+            {
+                try
+                {
+                    return await func.Invoke();
+                }
+                catch (ApiException e)
+                {
+                    if (DPXApiError == null
+                        || !DPXApiError.Invoke(e))
+                        throw e; // re- throw the exeption and dont retry if handler failed
+                    else
+                        continue; //retry call
+                }
+            }
         }
     }
 }

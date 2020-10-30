@@ -167,11 +167,12 @@ namespace DPXTool.DPX.Model.JobInstances
         /// <param name="count">how many log entries to load</param>
         /// <param name="getAllLogs">should all log entries be loaded (takes longer). If true, startIndex and count are ignored</param>
         /// <param name="filters">filters to apply to the logs. WARNING: this is more inofficial functionality</param>
+        /// <param name="timeout">timeout to get job logs, in milliseconds. if the timeout is <= 0, no timeout is used</param>
         /// <returns>the list of log entries</returns>
-        public async Task<InstanceLogEntry[]> GetLogEntriesAsync(long startIndex = 0, long count = 500, bool getAllLogs = false, params FilterItem[] filters)
+        public async Task<InstanceLogEntry[]> GetLogEntriesAsync(long startIndex = 0, long count = 500, bool getAllLogs = false, long timeout = -1, params FilterItem[] filters)
         {
             if (getAllLogs)
-                return await SourceClient?.GetAllJobInstanceLogsAsync(ID, 500, filters);
+                return await SourceClient?.GetAllJobInstanceLogsAsync(ID, 500, timeout, filters);
             else
                 return await SourceClient?.GetJobInstanceLogsAsync(ID, startIndex, count, filters);
         }
@@ -216,6 +217,11 @@ namespace DPXTool.DPX.Model.JobInstances
                 return job.ID.Equals(ID);
             else
                 return base.Equals(obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(ID);
         }
     }
 }
