@@ -217,6 +217,8 @@ namespace DPXTool
         /// <param name="args">console arguments</param>
         public static void Main(string[] args)
         {
+            Program.MainX(args);
+
             new Parser(o =>
             {
                 o.HelpWriter = Parser.Default.Settings.HelpWriter;

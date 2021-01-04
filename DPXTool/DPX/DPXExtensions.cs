@@ -38,5 +38,114 @@ namespace DPXTool.DPX
 
             return volsers.ToArray();
         }
+
+        /// <summary>
+        /// Get backup data size information for a job
+        /// Only valid if the job finished
+        /// </summary>
+        /// <param name="job">the job to get data size information of</param>
+        /// <param name="onlyCompleted">only check for completed jobs</param>
+        /// <param name="timeout">timeout to get job information, in milliseconds. if the timeout is <= 0, no timeout is used</param>
+        /// <returns>information about the size of the backup job, or null if the job was not completed or nothing was found</returns>
+        public static async Task<JobSizeInfo> GetBackupSizeAsync(this JobInstance job, bool onlyCompleted = true, long timeout = -1)
+        {
+            //check job ran to completion
+            if (job.GetStatus() != JobStatus.Completed && onlyCompleted)
+                return null;
+
+            //get all logs for this job
+            InstanceLogEntry[] logs = await job.GetLogEntriesAsync(getAllLogs: true, timeout: timeout);
+
+            //prepare data object
+            JobSizeInfo sizeInfo = new JobSizeInfo();
+
+            //search logs for the following message codes:
+            //SNBJH_3304J - files backed up count   - "Files backed up: 1197"
+            //SNBJH_3311J - total backup size       - "Total data backed up: 3670512 KB"
+            //SNBJH_3313J - total data on tape      - "Total data on media: 3670592 KB"
+            bool oneFound = false;
+            foreach (InstanceLogEntry log in logs)
+                if (!string.IsNullOrWhiteSpace(log.Message))
+                    switch (log.MessageCode.ToLower())
+                    {
+                        case "snbjh_3304j":
+                            //files backed up count; parse direct
+                            sizeInfo.FilesBackedUp = ParseLong(log.Message.ToLower(), @"files backed up: (\d*)").GetValueOrDefault(0);
+                            oneFound = true;
+                            break;
+                        case "snbjh_3311j":
+                            //total backup size; parse and convert from KB to Bytes
+                            sizeInfo.TotalDataBackedUp = ParseLong(log.Message.ToLower(), @"total data backed up: (\d*) kb").GetValueOrDefault(0) * 1000;
+                            oneFound = true;
+                            break;
+                        case "snbjh_3313j":
+                            //total data on tape; parse and convert from KB to Bytes
+                            sizeInfo.TotalDataOnMedia = ParseLong(log.Message.ToLower(), @"total data on media: (\d*) kb").GetValueOrDefault(0) * 1000;
+                            oneFound = true;
+                            break;
+                        default:
+                            //unknown / unrelevant message
+                            break;
+                    }
+
+            //return null if no matching log was found
+            if (!oneFound)
+                return null;
+
+            return sizeInfo;
+        }
+
+        /// <summary>
+        /// parse a long from a string using regex
+        /// </summary>
+        /// <param name="str">the string to parse from</param>
+        /// <param name="pattern">the regex pattern to use. target long is in a capture group</param>
+        /// <param name="targetCaptureGroup">the capture group to parse to long from</param>
+        /// <returns>the parsed long, or null if parse failed</returns>
+        static long? ParseLong(string str, string pattern, int targetCaptureGroup = 1)
+        {
+            //run regex with the given pattern on input string
+            Match m = Regex.Match(str, pattern);
+
+            // check we have a successfull match and target capture group is in bounds
+            if (!m.Success
+                || targetCaptureGroup < 0
+                || targetCaptureGroup >= m.Groups.Count
+                || !m.Groups[targetCaptureGroup].Success)
+                return null;
+
+            //get target capture group
+            string target = m.Groups[targetCaptureGroup].Value;
+
+            // parse target as long
+            if (!long.TryParse(target, out long result))
+                return null;
+
+            return result;
+        }
+
+        /// <summary>
+        /// data object for <see cref="GetBackupSizeAsync(JobInstance, bool, long)"/>
+        /// </summary>
+        public class JobSizeInfo
+        {
+            /// <summary>
+            /// total number of files backed up in the job
+            /// (MSG_ID SNBJH_3304J)
+            /// </summary>
+            public long FilesBackedUp { get; internal set; } = 0;
+
+            /// <summary>
+            /// total data backed up in this job, in bytes
+            /// (MSG_ID SNBJH_3311J)
+            /// </summary>
+            public long TotalDataBackedUp { get; internal set; } = 0;
+
+            /// <summary>
+            /// total data wwritten to tape in this job, in bytes
+            /// (MSG_ID SNBJH_3313J)
+            /// </summary>
+            public long TotalDataOnMedia { get; internal set; } = 0;
+        }
     }
 }

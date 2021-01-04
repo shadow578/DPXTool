@@ -45,7 +45,8 @@ namespace DPXTool
             //await DemoJobs();
             //await DemoLogs();
             //await DemoVolsers();
-            await DemoNodes();
+           // await DemoNodes();
+            await DemoBackupSize();
 
             Console.WriteLine("end");
             Console.ReadLine();
@@ -120,8 +121,8 @@ Licensed:");
         {
             //get jobs
             JobInstance[] jobs = await client.GetJobInstancesAsync(FilterItem.JobNameIs("ST010-NACL02_cifs_automotive"),
-                FilterItem.ReportStart(new DateTime(2020, 9, 1)),
-                FilterItem.ReportEnd(new DateTime(2020, 10, 1)));
+                FilterItem.ReportStart(DateTime.Now.Subtract(TimeSpan.FromDays(2))),
+                FilterItem.ReportEnd(DateTime.Now));
 
             //list volsers for each found job
             Console.WriteLine($"Found {jobs.Length} jobs");
@@ -138,6 +139,30 @@ Licensed:");
                     foreach (string volser in volsers)
                         Console.WriteLine($"  {volser}");
             }
+        }
+
+        /// <summary>
+        /// demo for GetBackupSize()
+        /// </summary>
+        static async Task DemoBackupSize()
+        {
+            //get jobs
+            JobInstance[] jobs = await client.GetJobInstancesAsync(FilterItem.JobNameIs("ST010-NACL02_cifs_automotive"),
+                FilterItem.ReportStart(DateTime.Now.Subtract(TimeSpan.FromDays(32))),
+                FilterItem.ReportEnd(DateTime.Now));
+
+            //list backup size for each found job
+            Console.WriteLine($"Found {jobs.Length} jobs");
+            foreach (JobInstance job in jobs)
+            {
+                Console.WriteLine($"Backup size info of job {job.DisplayName}:");
+                DPXExtensions.JobSizeInfo size = await job.GetBackupSizeAsync();
+                if (size == null)
+                    Console.WriteLine("  no info available");
+                else
+                    Console.WriteLine($"  Files Backed up: {size.FilesBackedUp}; Total Data: {size.TotalDataBackedUp}; Total on Media: {size.TotalDataOnMedia}");
+            }
+
         }
 
         /// <summary>
