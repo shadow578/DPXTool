@@ -214,14 +214,9 @@ namespace DPXTool.DPX.Model.JobInstances
         public override bool Equals(object obj)
         {
             if (obj is JobInstance job)
-                return job.ID.Equals(ID);
+                return job.ID.Equals(ID) && job.Name.Equals(Name);
             else
                 return base.Equals(obj);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(ID);
         }
     }
 }
