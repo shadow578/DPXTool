@@ -123,16 +123,22 @@ namespace DPXTool
             public bool ShouldOnlyListVolsers { get; set; }
 
             /// <summary>
+            /// should size info for the job be included in the report?
+            /// </summary>
+            [Option("include-size", Required = false, HelpText = "include job size info in the report?", Default = false)]
+            public bool ShouldIncludeSizeInfo { get; set; }
+
+            /// <summary>
             /// should only jobs that are still in retention be listed?
             /// </summary>
             [Option("only-in-retention", Required = false, HelpText = "only include jobs that are still in retention", Default = false)]
             public bool ShouldOnlyListInRetention { get; set; }
 
             /// <summary>
-            /// timeout for job volser query
+            /// timeout for metadata query (eg logs; used by volsers and backup size)
             /// </summary>
-            [Option("volser-query-timeout", Required = false, HelpText = "timeout for getting volsers of a job instance; milliseconds", Default = -1)]
-            public long VolserQueryTimeout { get; set; }
+            [Option("meta-query-timeout", Required = false, HelpText = "timeout for getting metadata of a job instance; used for volsers and backup size; in milliseconds", Default = -1)]
+            public long MetaQueryTimeout { get; set; }
         }
 
         /// <summary>
@@ -217,8 +223,6 @@ namespace DPXTool
         /// <param name="args">console arguments</param>
         public static void Main(string[] args)
         {
-            Program.MainX(args);
-
             new Parser(o =>
             {
                 o.HelpWriter = Parser.Default.Settings.HelpWriter;
@@ -352,32 +356,49 @@ Licensed Categories:");
                 return;
             }
 
-            //query volsers
-            //jobsAndVolsers is also used when volsers are not queried to simplify the code *a bit*
-            Dictionary<JobInstance /*job*/, string[] /*volsers*/> jobsAndVolsers = new Dictionary<JobInstance, string[]>();
+            //query metadata for jobs
+            //JobWithMeta is also used if no metadata is attached, to simplify the code *a little*
+            List<JobWithMeta> jobsAndMeta = new List<JobWithMeta>();
             int i = 0;
             foreach (JobInstance job in jobs)
+            {
+                //create basic job (without metadata yet)
+                JobWithMeta jobMeta = new JobWithMeta()
+                {
+                    Job = job
+                };
+                jobsAndMeta.Add(jobMeta);
+
+                // query volsers if needed
                 if (options.ShouldIncludeVolsers || options.ShouldOnlyListVolsers)
                 {
                     Console.WriteLine($"({++i}/{jobs.Count}) query volsers for job {job.ID}");
-                    string[] volsers = await job.GetVolsersUsed(false, options.VolserQueryTimeout);
-                    jobsAndVolsers.Add(job, volsers);
+                    jobMeta.Volsers = await job.GetVolsersUsed(false, options.MetaQueryTimeout);
                 }
-                else
-                    jobsAndVolsers.Add(job, null);
 
-            //split printin ini full and only volsers mode
+                // query size info if needed
+                if(options.ShouldIncludeSizeInfo && !options.ShouldOnlyListVolsers)
+                {
+                    Console.WriteLine($"({++i}/{jobs.Count}) query size info for job {job.ID}");
+                    jobMeta.Size = await job.GetBackupSizeAsync(false, options.MetaQueryTimeout);
+                }
+            }
+
+            //split print in full and only volsers mode
             if (options.ShouldOnlyListVolsers)
             {
                 //get volsers first, unify into one list
                 Dictionary<string /*volser*/, int /*use count*/> allVolsers = new Dictionary<string, int>();
-                foreach (string[] volsers in jobsAndVolsers.Values)
+                foreach (JobWithMeta job in jobsAndMeta)
+                {
+                    string[] volsers = job.Volsers;
                     if (volsers != null && volsers.Length > 0)
                         foreach (string volser in volsers)
                             if (!allVolsers.ContainsKey(volser))
                                 allVolsers.Add(volser, 1);
                             else
                                 allVolsers[volser]++;
+                }
 
                 //init table
                 TableWriter w = new TableWriter();
@@ -397,20 +418,45 @@ Licensed Categories:");
                 TableWriter w = new TableWriter();
 
                 //write license categories
-                w.WriteRow("Start Time", "End Time", "Duration", "ID", "Name", "Protocol", "Type", "Retention (days)", "Days since run", "RC", "Status", "Volsers Used");
-                foreach (JobInstance job in jobsAndVolsers.Keys)
+                w.WriteRow("Start Time", 
+                    "End Time", 
+                    "Duration", 
+                    "ID", 
+                    "Name", 
+                    "Protocol", 
+                    "Type", 
+                    "Retention (days)", 
+                    "Days since run", 
+                    "RC", 
+                    "Status", 
+                    "Total Files Backed up", 
+                    "", 
+                    "", 
+                    "Volsers Used");
+                foreach (JobWithMeta m in jobsAndMeta)
                 {
                     //build volser string
-                    string[] volsers = jobsAndVolsers[job];
                     string volsersStr = "-";
-                    if (volsers != null && volsers.Length > 0)
-                        volsersStr = string.Join(", ", jobsAndVolsers[job]);
+                    if (m.Volsers != null && m.Volsers.Length > 0)
+                        volsersStr = string.Join(", ", m.Volsers);
 
-                    w.WriteRow(job.StartTime.ToString(DATE_FORMAT), job.EndTime.ToString(DATE_FORMAT), TimeSpan.FromMilliseconds(job.RunDuration).ToString(),
-                        job.ID.ToString(), job.DisplayName,
-                        job.JobType.ToString(), job.RunType.ToString(), job.Retention.ToString(),
-                        (DateTime.Now - job.EndTime).TotalDays.ToString("0"),
-                        job.ReturnCode.ToString(), job.GetStatus().ToString(),
+                    //write to table
+                    w.WriteRow(m.Job.StartTime.ToString(DATE_FORMAT), 
+                        m.Job.EndTime.ToString(DATE_FORMAT), 
+                        TimeSpan.FromMilliseconds(m.Job.RunDuration).ToString(),
+                        m.Job.ID.ToString(), 
+                        m.Job.DisplayName,
+                        m.Job.JobType.ToString(), 
+                        m.Job.RunType.ToString(), 
+                        m.Job.Retention.ToString(),
+                        (DateTime.Now - m.Job.EndTime).TotalDays.ToString("0"),
+                        m.Job.ReturnCode.ToString(), 
+                        m.Job.GetStatus().ToString(),
+
+                        m.Size == null ? "-" : m.Size.FilesBackedUp.ToString(),
+                        m.Size == null ? "-" : m.Size.TotalDataBackedUp.ToFileSize(),
+                        m.Size == null ? "-" : m.Size.TotalDataOnMedia.ToFileSize(),
+
                         volsersStr);
                 }
 
@@ -740,6 +786,27 @@ Licensed Categories:");
 
             //dont handle any other errors
             return false;
+        }
+
+        /// <summary>
+        /// a job with metadata attached
+        /// </summary>
+        class JobWithMeta
+        {
+            /// <summary>
+            /// the job this contains metadata for
+            /// </summary>
+            public JobInstance Job { get; set; }
+
+            /// <summary>
+            /// volsers that this job was written to
+            /// </summary>
+            public string[] Volsers { get; set; }
+
+            /// <summary>
+            /// information about the job size for this job
+            /// </summary>
+            public DPXExtensions.JobSizeInfo Size { get; set; }
         }
     }
 }
