@@ -5,6 +5,7 @@ using DPXTool.DPX.Model.JobInstances;
 using DPXTool.DPX.Model.License;
 using DPXTool.DPX.Model.Nodes;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace DPXTool
@@ -45,8 +46,9 @@ namespace DPXTool
             //await DemoJobs();
             //await DemoLogs();
             //await DemoVolsers();
-           // await DemoNodes();
-            await DemoBackupSize();
+            //await DemoNodes();
+            //await DemoBackupSize();
+            await DemoLogsCached();
 
             Console.WriteLine("end");
             Console.ReadLine();
@@ -111,6 +113,36 @@ Licensed:");
             foreach (InstanceLogEntry log in logs)
                 Console.WriteLine(log);
 
+        }
+
+        /// <summary>
+        /// demo for GetJobInstanceLogs() with caching
+        /// </summary>
+        static async Task DemoLogsCached()
+        {
+            //get jobs, select first
+            JobInstance[] jobs = await client.GetJobInstancesAsync(FilterItem.JobNameIs("Exchange02"),
+                FilterItem.ReportStart(DateTime.Now.Subtract(TimeSpan.FromDays(2))),
+                FilterItem.ReportEnd(DateTime.Now));
+
+            JobInstance job = jobs[0];
+            Stopwatch sw = new Stopwatch();
+            Console.WriteLine($"running logs demo for job {job.DisplayName} ({job.ID})");
+
+            //Get logs for job the first time
+            Console.WriteLine("get all logs (first run; uncached)");
+            sw.Restart();
+            InstanceLogEntry[] logs = await job.GetLogEntriesAsync(getAllLogs: true);
+            sw.Stop();
+
+            Console.WriteLine($"found total of {logs.Length} logs in {sw.ElapsedMilliseconds} ms (1st; not cached)");
+
+            // get logs the second time (cached)
+            sw.Restart();
+            logs = await job.GetLogEntriesAsync(getAllLogs: true);
+            sw.Stop();
+
+            Console.WriteLine($"found total of {logs.Length} logs in {sw.ElapsedMilliseconds} ms (2nd; cached)");
         }
 
         /// <summary>

@@ -161,7 +161,14 @@ namespace DPXTool.DPX.Model.JobInstances
         public object CatalogStatus { get; set; }
 
         /// <summary>
-        /// Get logs for this job instance
+        /// cached job logs, from <see cref="GetLogEntriesAsync(long, long, bool, long, FilterItem[])"/>
+        /// Only for getAllLogs = true
+        /// </summary>
+        private InstanceLogEntry[] CachedJobLogs { get; set; }
+
+        /// <summary>
+        /// Get logs for this job instance.
+        /// if getAllLogs is true, the logs are cached (== only queried from the server the first time)
         /// </summary>
         /// <param name="startIndex">the index of the first log entry to get</param>
         /// <param name="count">how many log entries to load</param>
@@ -172,7 +179,14 @@ namespace DPXTool.DPX.Model.JobInstances
         public async Task<InstanceLogEntry[]> GetLogEntriesAsync(long startIndex = 0, long count = 500, bool getAllLogs = false, long timeout = -1, params FilterItem[] filters)
         {
             if (getAllLogs)
-                return await SourceClient?.GetAllJobInstanceLogsAsync(ID, 500, timeout, filters);
+            {
+                // check if logs are already cached
+                // if not, query from source client
+                if (CachedJobLogs == null || CachedJobLogs.Length <= 0)
+                    CachedJobLogs = await SourceClient?.GetAllJobInstanceLogsAsync(ID, 500, timeout, filters);
+
+                return CachedJobLogs;
+            }
             else
                 return await SourceClient?.GetJobInstanceLogsAsync(ID, startIndex, count, filters);
         }
