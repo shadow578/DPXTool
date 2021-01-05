@@ -57,6 +57,12 @@ namespace DPXTool
             /// </summary>
             [Option("debug-requests", Required = false, HelpText = "debug communication with the dpx server and log them to a file", Default = false)]
             public bool DebugNetworkRequests { get; set; }
+
+            /// <summary>
+            /// if set, dont print tables to console
+            /// </summary>
+            [Option("no-console", Required = false, HelpText = "disable printing results to console", Default = false)]
+            public bool NoPrintToConsole { get; set; }
         }
 
         /// <summary>
@@ -383,7 +389,7 @@ Licensed Categories:");
                 }
 
                 // query size info if needed
-                if(options.ShouldIncludeSizeInfo && !options.ShouldOnlyListVolsers)
+                if (options.ShouldIncludeSizeInfo && !options.ShouldOnlyListVolsers)
                 {
                     Console.Write("query size...");
                     jobMeta.Size = await job.GetBackupSizeAsync(false, options.MetaQueryTimeout);
@@ -417,7 +423,8 @@ Licensed Categories:");
                     w.WriteRow(volser, allVolsers[volser].ToString());
 
                 //write table
-                w.WriteToConsole();
+                if (!options.NoPrintToConsole)
+                    w.WriteToConsole();
                 await WriteTableToFile(options, w);
             }
             else
@@ -426,19 +433,19 @@ Licensed Categories:");
                 TableWriter w = new TableWriter();
 
                 //write license categories
-                w.WriteRow("Start Time", 
-                    "End Time", 
-                    "Duration", 
-                    "ID", 
-                    "Name", 
-                    "Protocol", 
-                    "Type", 
-                    "Retention (days)", 
-                    "Days since run", 
-                    "RC", 
-                    "Status", 
-                    "Data Backed up", 
-                    "Data on Tape", 
+                w.WriteRow("Start Time",
+                    "End Time",
+                    "Duration",
+                    "ID",
+                    "Name",
+                    "Protocol",
+                    "Type",
+                    "Retention (days)",
+                    "Days since run",
+                    "RC",
+                    "Status",
+                    "Data Backed up",
+                    "Data on Tape",
                     "Volsers Used");
                 foreach (JobWithMeta m in jobsAndMeta)
                 {
@@ -448,16 +455,16 @@ Licensed Categories:");
                         volsersStr = string.Join(", ", m.Volsers);
 
                     //write to table
-                    w.WriteRow(m.Job.StartTime.ToString(DATE_FORMAT), 
-                        m.Job.EndTime.ToString(DATE_FORMAT), 
+                    w.WriteRow(m.Job.StartTime.ToString(DATE_FORMAT),
+                        m.Job.EndTime.ToString(DATE_FORMAT),
                         TimeSpan.FromMilliseconds(m.Job.RunDuration).ToString(),
-                        m.Job.ID.ToString(), 
+                        m.Job.ID.ToString(),
                         m.Job.DisplayName,
-                        m.Job.JobType.ToString(), 
-                        m.Job.RunType.ToString(), 
+                        m.Job.JobType.ToString(),
+                        m.Job.RunType.ToString(),
                         m.Job.Retention.ToString(),
                         (DateTime.Now - m.Job.EndTime).TotalDays.ToString("0"),
-                        m.Job.ReturnCode.ToString(), 
+                        m.Job.ReturnCode.ToString(),
                         m.Job.GetStatus().ToString(),
 
                         m.Size == null ? "-" : m.Size.TotalDataBackedUp.ToFileSize(),
@@ -467,7 +474,8 @@ Licensed Categories:");
                 }
 
                 //write table
-                w.WriteToConsole();
+                if (!options.NoPrintToConsole)
+                    w.WriteToConsole();
                 await WriteTableToFile(options, w);
             }
 
@@ -564,7 +572,8 @@ Licensed Categories:");
 
             //write table
             Console.WriteLine("logs for job " + options.JobInstanceID);
-            w.WriteToConsole();
+            if (!options.NoPrintToConsole)
+                w.WriteToConsole();
             await WriteTableToFile(options, w);
         }
 
@@ -592,7 +601,8 @@ Licensed Categories:");
 
             //write table
             Console.WriteLine($"Found {groups.Length} node groups:");
-            w.WriteToConsole();
+            if (!options.NoPrintToConsole)
+                w.WriteToConsole();
             await WriteTableToFile(options, w);
         }
 
@@ -625,7 +635,9 @@ Licensed Categories:");
 
             //write table
             Console.WriteLine($"Found {nodes.Length} nodes:");
-            w.WriteToConsole();
+
+            if (!options.NoPrintToConsole)
+                w.WriteToConsole();
             await WriteTableToFile(options, w);
         }
 
