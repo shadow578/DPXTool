@@ -368,20 +368,24 @@ Licensed Categories:");
                     Job = job
                 };
                 jobsAndMeta.Add(jobMeta);
+                i++;
+                Console.Write($"({i}/{jobs.Count}) processing job {job.ID}: ");
 
                 // query volsers if needed
                 if (options.ShouldIncludeVolsers || options.ShouldOnlyListVolsers)
                 {
-                    Console.WriteLine($"({++i}/{jobs.Count}) query volsers for job {job.ID}");
+                    Console.Write("query volsers... ");
                     jobMeta.Volsers = await job.GetVolsersUsed(false, options.MetaQueryTimeout);
                 }
 
                 // query size info if needed
                 if(options.ShouldIncludeSizeInfo && !options.ShouldOnlyListVolsers)
                 {
-                    Console.WriteLine($"({++i}/{jobs.Count}) query size info for job {job.ID}");
+                    Console.Write("query size...");
                     jobMeta.Size = await job.GetBackupSizeAsync(false, options.MetaQueryTimeout);
                 }
+
+                Console.WriteLine();
             }
 
             //split print in full and only volsers mode
@@ -429,9 +433,9 @@ Licensed Categories:");
                     "Days since run", 
                     "RC", 
                     "Status", 
-                    "Total Files Backed up", 
-                    "", 
-                    "", 
+                    "Files Backed up", 
+                    "Data Backed up", 
+                    "Data on Tape", 
                     "Volsers Used");
                 foreach (JobWithMeta m in jobsAndMeta)
                 {
@@ -729,6 +733,11 @@ Licensed Categories:");
                 Console.WriteLine("output file is is no file!");
                 return;
             }
+
+            //create file directory as needed
+            string dir = Path.GetDirectoryName(path);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
 
             //write to file
             Console.WriteLine("Writing to " + path);
