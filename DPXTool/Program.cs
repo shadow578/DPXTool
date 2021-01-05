@@ -192,7 +192,7 @@ Licensed:");
                 if (size == null)
                     Console.WriteLine("  no info available");
                 else
-                    Console.WriteLine($"  Files Backed up: {size.FilesBackedUp}; Total Data: {size.TotalDataBackedUp}; Total on Media: {size.TotalDataOnMedia}");
+                    Console.WriteLine($"  Total Data: {size.TotalDataBackedUp}; Total on Media: {size.TotalDataOnMedia}");
             }
 
         }

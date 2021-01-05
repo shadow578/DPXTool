@@ -433,7 +433,6 @@ Licensed Categories:");
                     "Days since run", 
                     "RC", 
                     "Status", 
-                    "Files Backed up", 
                     "Data Backed up", 
                     "Data on Tape", 
                     "Volsers Used");
@@ -457,7 +456,6 @@ Licensed Categories:");
                         m.Job.ReturnCode.ToString(), 
                         m.Job.GetStatus().ToString(),
 
-                        m.Size == null ? "-" : m.Size.FilesBackedUp.ToString(),
                         m.Size == null ? "-" : m.Size.TotalDataBackedUp.ToFileSize(),
                         m.Size == null ? "-" : m.Size.TotalDataOnMedia.ToFileSize(),
 

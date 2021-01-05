@@ -60,7 +60,6 @@ namespace DPXTool.DPX
             JobSizeInfo sizeInfo = new JobSizeInfo();
 
             //search logs for the following message codes:
-            //SNBJH_3304J - files backed up count   - "Files backed up: 1197"
             //SNBJH_3311J - total backup size       - "Total data backed up: 3670512 KB"
             //SNBJH_3313J - total data on tape      - "Total data on media: 3670592 KB"
             bool oneFound = false;
@@ -68,11 +67,6 @@ namespace DPXTool.DPX
                 if (!string.IsNullOrWhiteSpace(log.Message))
                     switch (log.MessageCode.ToLower())
                     {
-                        case "snbjh_3304j":
-                            //files backed up count; parse direct
-                            sizeInfo.FilesBackedUp = ParseLong(log.Message.ToLower(), @"files backed up: (\d*)").GetValueOrDefault(0);
-                            oneFound = true;
-                            break;
                         case "snbjh_3311j":
                             //total backup size; parse and convert from KB to Bytes
                             sizeInfo.TotalDataBackedUp = ParseLong(log.Message.ToLower(), @"total data backed up: (\d*) kb").GetValueOrDefault(0) * 1000;
@@ -129,12 +123,6 @@ namespace DPXTool.DPX
         /// </summary>
         public class JobSizeInfo
         {
-            /// <summary>
-            /// total number of files backed up in the job
-            /// (MSG_ID SNBJH_3304J)
-            /// </summary>
-            public long FilesBackedUp { get; internal set; } = 0;
-
             /// <summary>
             /// total data backed up in this job, in bytes
             /// (MSG_ID SNBJH_3311J)
