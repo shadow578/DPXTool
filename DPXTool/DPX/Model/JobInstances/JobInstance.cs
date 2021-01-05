@@ -232,5 +232,10 @@ namespace DPXTool.DPX.Model.JobInstances
             else
                 return base.Equals(obj);
         }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(ID, Name);
+        }
     }
 }

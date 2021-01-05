@@ -6,6 +6,7 @@ using DPXTool.DPX.Model.License;
 using DPXTool.DPX.Model.Nodes;
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
 namespace DPXTool
@@ -15,17 +16,12 @@ namespace DPXTool
     /// Just staying here as a reference, may be removed later :P
     /// </summary>
     [Obsolete("early usage demo and tests for DPX Client")]
+    [SuppressMessage("CodeQuality", "IDE0051", Justification = "Demo Functions are for demo :P")]
     class Program
     {
-
-        public static void MainX(string[] args)
-        {
-            test().ConfigureAwait(false).GetAwaiter().GetResult();
-        }
-
         static DPXClient client;
 
-        static async Task test()
+        public static async Task RunDemos()
         {
             //get info from user
             Console.Write("enter host name (http://dpx-example.local): ");
@@ -39,7 +35,6 @@ namespace DPXTool
             client = new DPXClient(host, true);
             bool loginOk = await client.LoginAsync(user, pw);
             Console.WriteLine("login ok: " + loginOk);
-            pw = null;
 
             //demos
             //await DemoLicense();
@@ -53,6 +48,7 @@ namespace DPXTool
             Console.WriteLine("end");
             Console.ReadLine();
         }
+
 
         /// <summary>
         /// demo for GetLicenseInfoAsync()

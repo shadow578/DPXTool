@@ -223,6 +223,8 @@ namespace DPXTool
         /// <param name="args">console arguments</param>
         public static void Main(string[] args)
         {
+            //Program.RunDemos().ConfigureAwait(false).GetAwaiter().GetResult();
+
             new Parser(o =>
             {
                 o.HelpWriter = Parser.Default.Settings.HelpWriter;
@@ -288,8 +290,10 @@ Licensed Categories:");
 
             #region Build Filter
             //start and end times
-            List<FilterItem> filters = new List<FilterItem>();
-            filters.Add(FilterItem.ReportStart(options.ReportStart));
+            List<FilterItem> filters = new List<FilterItem>
+            {
+                FilterItem.ReportStart(options.ReportStart)
+            };
 
             if (options.ReportEnd.HasValue)
                 filters.Add(FilterItem.ReportEnd(options.ReportEnd.Value));
@@ -693,7 +697,7 @@ Licensed Categories:");
                 {
                     if (pw.Length > 0)
                     {
-                        pw = pw.Substring(0, pw.Length - 1);
+                        pw = pw[0..^1];
                         Console.Write("\b \b");
                     }
                 }
