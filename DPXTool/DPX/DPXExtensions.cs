@@ -13,6 +13,33 @@ namespace DPXTool.DPX
     public static class DPXExtensions
     {
         /// <summary>
+        /// check if a status indicates a failed job
+        /// </summary>
+        /// <param name="status">the status to check</param>
+        /// <returns>indicates the status a failed job?</returns>
+        public static bool IsFailedStatus(this JobStatus status)
+        {
+            switch (status)
+            {
+                case JobStatus.Running:
+                case JobStatus.Resuming:
+                case JobStatus.Completed:
+                case JobStatus.Held:
+                    return false;
+
+                case JobStatus.Aborted:
+                case JobStatus.Cancelled:
+                case JobStatus.Cancelling:
+                case JobStatus.Failed:
+                case JobStatus.Suspended:
+                case JobStatus.Suspending:
+                case JobStatus.None:
+                default://this is exhaustive switch, but compiler dont like :P
+                    return true;
+            }
+        }
+
+        /// <summary>
         /// Get the volsers that were used by this job
         /// Only valid if the job finished
         /// </summary>

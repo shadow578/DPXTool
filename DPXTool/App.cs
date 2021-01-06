@@ -22,6 +22,7 @@ namespace DPXTool
     /// </summary>
     public static class App
     {
+        #region Commandline Option classes
         /// <summary>
         /// Base options that are shared between all verbs
         /// </summary>
@@ -72,79 +73,6 @@ namespace DPXTool
         class PrintLicenseOptions : BaseOptions
         {
             //no additional options needed
-        }
-
-        /// <summary>
-        /// Options for the get-jobs command
-        /// </summary>
-        [Verb("get-jobs", HelpText = "get jobs and information about them")]
-        class GetJobsOptions : BaseOptions
-        {
-            /// <summary>
-            /// start date of the report
-            /// </summary>
-            [Option('s', "start", Required = true, HelpText = "start date for the report, format mm.dd.yyyy or mm.dd.yyyy,hh:mm:ss")]
-            public DateTime ReportStart { get; set; }
-
-            /// <summary>
-            /// end date of the report
-            /// </summary>
-            [Option('e', "end", Required = false, HelpText = "end date for the report, format mm.dd.yyyy or mm.dd.yyyy,hh:mm:ss", Default = null)]
-            public DateTime? ReportEnd { get; set; }
-
-            /// <summary>
-            /// job filter by job name
-            /// </summary>
-            [Option("job-name", Required = false, HelpText = "filter for jobs with these names. multiple possible")]
-            public IEnumerable<string> FilterJobNames { get; set; }
-
-            /// <summary>
-            /// job filter by job type (BLOCK, NDMP)
-            /// </summary>
-            [Option("job-protocol", Required = false, HelpText = "filter for jobs with these protocols (Block, File, NDMP, Catalog, ...). multiple possible")]
-            public IEnumerable<JobType> FilterJobTypes { get; set; }
-
-            /// <summary>
-            /// job filter by job run type (BASE, DIFF, INCR)
-            /// </summary>
-            [Option("job-type", Required = false, HelpText = "filter for jobs with this type (Base, Difr, Incr). multiple possible")]
-            public IEnumerable<JobRunType> FilterJobRunTypes { get; set; }
-
-            /// <summary>
-            /// job filter by job status (Completed, Failed)
-            /// </summary>
-            [Option("job-status", Required = false, HelpText = "filter for jobs with this status (Failed, Completed, ...). multiple possible")]
-            public IEnumerable<JobStatus> FilterJobStatus { get; set; }
-
-            /// <summary>
-            /// should used volsers be included in the report?
-            /// </summary>
-            [Option("include-volsers", Required = false, HelpText = "include volsers used in the report?", Default = false)]
-            public bool ShouldIncludeVolsers { get; set; }
-
-            /// <summary>
-            /// should the report only be a list of volsers used?
-            /// </summary>
-            [Option("only-volsers", Required = false, HelpText = "only list used volsers in the report?", Default = false)]
-            public bool ShouldOnlyListVolsers { get; set; }
-
-            /// <summary>
-            /// should size info for the job be included in the report?
-            /// </summary>
-            [Option("include-size", Required = false, HelpText = "include job size info in the report?", Default = false)]
-            public bool ShouldIncludeSizeInfo { get; set; }
-
-            /// <summary>
-            /// should only jobs that are still in retention be listed?
-            /// </summary>
-            [Option("only-in-retention", Required = false, HelpText = "only include jobs that are still in retention", Default = false)]
-            public bool ShouldOnlyListInRetention { get; set; }
-
-            /// <summary>
-            /// timeout for metadata query (eg logs; used by volsers and backup size)
-            /// </summary>
-            [Option("meta-query-timeout", Required = false, HelpText = "timeout for getting metadata of a job instance; used for volsers and backup size; in milliseconds", Default = -1)]
-            public long MetaQueryTimeout { get; set; }
         }
 
         /// <summary>
@@ -214,6 +142,95 @@ namespace DPXTool
         }
 
         /// <summary>
+        /// common options for job querying and filtering (used by <see cref="GetJobsOptions"/> and <see cref="JobStatsOptions"/>)
+        /// </summary>
+        class JobQueryOptions : BaseOptions
+        {
+            /// <summary>
+            /// start date of the report
+            /// </summary>
+            [Option('s', "start", Required = true, HelpText = "start date for the report, format mm.dd.yyyy or mm.dd.yyyy,hh:mm:ss")]
+            public DateTime ReportStart { get; set; }
+
+            /// <summary>
+            /// end date of the report
+            /// </summary>
+            [Option('e', "end", Required = false, HelpText = "end date for the report, format mm.dd.yyyy or mm.dd.yyyy,hh:mm:ss", Default = null)]
+            public DateTime? ReportEnd { get; set; }
+
+            /// <summary>
+            /// job filter by job name
+            /// </summary>
+            [Option("job-name", Required = false, HelpText = "filter for jobs with these names. multiple possible")]
+            public IEnumerable<string> FilterJobNames { get; set; }
+
+            /// <summary>
+            /// job filter by job type (BLOCK, NDMP)
+            /// </summary>
+            [Option("job-protocol", Required = false, HelpText = "filter for jobs with these protocols (Block, File, NDMP, Catalog, ...). multiple possible")]
+            public IEnumerable<JobType> FilterJobTypes { get; set; }
+
+            /// <summary>
+            /// job filter by job run type (BASE, DIFF, INCR)
+            /// </summary>
+            [Option("job-type", Required = false, HelpText = "filter for jobs with this type (Base, Difr, Incr). multiple possible")]
+            public IEnumerable<JobRunType> FilterJobRunTypes { get; set; }
+
+            /// <summary>
+            /// job filter by job status (Completed, Failed)
+            /// </summary>
+            [Option("job-status", Required = false, HelpText = "filter for jobs with this status (Failed, Completed, ...). multiple possible")]
+            public IEnumerable<JobStatus> FilterJobStatus { get; set; }
+
+            /// <summary>
+            /// timeout for metadata query (eg logs)
+            /// </summary>
+            [Option("query-timeout", Required = false, HelpText = "timeout for getting metadata of a job instance; in milliseconds", Default = -1)]
+            public long MetaQueryTimeout { get; set; }
+        }
+
+        /// <summary>
+        /// Options for the get-jobs command
+        /// </summary>
+        [Verb("get-jobs", HelpText = "get jobs and information about them")]
+        class GetJobsOptions : JobQueryOptions
+        {
+            /// <summary>
+            /// should used volsers be included in the report?
+            /// </summary>
+            [Option("include-volsers", Required = false, HelpText = "include volsers used in the report?", Default = false)]
+            public bool ShouldIncludeVolsers { get; set; }
+
+            /// <summary>
+            /// should the report only be a list of volsers used?
+            /// </summary>
+            [Option("only-volsers", Required = false, HelpText = "only list used volsers in the report?", Default = false)]
+            public bool ShouldOnlyListVolsers { get; set; }
+
+            /// <summary>
+            /// should size info for the job be included in the report?
+            /// </summary>
+            [Option("include-size", Required = false, HelpText = "include job size info in the report?", Default = false)]
+            public bool ShouldIncludeSizeInfo { get; set; }
+
+            /// <summary>
+            /// should only jobs that are still in retention be listed?
+            /// </summary>
+            [Option("only-in-retention", Required = false, HelpText = "only include jobs that are still in retention", Default = false)]
+            public bool ShouldOnlyListInRetention { get; set; }
+        }
+
+        /// <summary>
+        /// options for the job-stats command
+        /// </summary>
+        [Verb("job-stats", HelpText = "get stats for backup jobs, like average size and fail / success rates")]
+        class JobStatsOptions : JobQueryOptions
+        {
+            // no further options needed  
+        }
+        #endregion
+
+        /// <summary>
         /// Format string to convert DateTime into string using toString()
         /// </summary>
         const string DATE_FORMAT = "yyyy.MM.dd, HH:mm:ss";
@@ -237,14 +254,16 @@ namespace DPXTool
                 o.AutoHelp = true;
                 o.AutoVersion = true;
                 o.CaseInsensitiveEnumValues = true;
-            }).ParseArguments<PrintLicenseOptions, GetJobsOptions, GetLogsOptions, GetNodeGroupsOptions, GetNodesOptions>(args)
+            }).ParseArguments<PrintLicenseOptions, GetJobsOptions, JobStatsOptions, GetLogsOptions, GetNodeGroupsOptions, GetNodesOptions>(args)
                 .WithParsed<PrintLicenseOptions>(opt => PrintLicenseMain(opt).GetAwaiter().GetResult())
                 .WithParsed<GetJobsOptions>(opt => GetJobsMain(opt).GetAwaiter().GetResult())
+                .WithParsed<JobStatsOptions>(opt => JobStatsMain(opt).GetAwaiter().GetResult())
                 .WithParsed<GetLogsOptions>(opt => GetLogsMain(opt).GetAwaiter().GetResult())
                 .WithParsed<GetNodeGroupsOptions>(opt => GetNodeGroupsMain(opt).GetAwaiter().GetResult())
                 .WithParsed<GetNodesOptions>(opt => GetNodesMain(opt).GetAwaiter().GetResult());
         }
 
+        #region App Modes
         /// <summary>
         /// app mode: print license information
         /// </summary>
@@ -294,108 +313,16 @@ Licensed Categories:");
             if (!await InitClient(options))
                 return;
 
-            #region Build Filter
-            //start and end times
-            List<FilterItem> filters = new List<FilterItem>
+            //query the jobs with their metadata
+            List<JobWithMeta> jobsWithMeta = await QueryJobsWithMeta(options, options.ShouldOnlyListInRetention,
+                options.ShouldIncludeVolsers | options.ShouldOnlyListVolsers,
+                options.ShouldIncludeSizeInfo & !options.ShouldOnlyListVolsers);// no need to query size info if we won't use it anyways
+
+            // check we found at leas one job
+            if (jobsWithMeta == null || jobsWithMeta.Count <= 0)
             {
-                FilterItem.ReportStart(options.ReportStart)
-            };
-
-            if (options.ReportEnd.HasValue)
-                filters.Add(FilterItem.ReportEnd(options.ReportEnd.Value));
-
-            //job filters
-            string[] filterJobs = options.FilterJobNames.ToArray();
-            if (filterJobs.Length > 0)
-                filters.Add(FilterItem.JobNameIs(filterJobs));
-
-            JobType[] filterTypes = options.FilterJobTypes.ToArray();
-            if (filterTypes.Length > 0)
-                filters.Add(FilterItem.JobType(filterTypes));
-
-            JobStatus[] filterStatus = options.FilterJobStatus.ToArray();
-            if (filterStatus.Length > 0)
-                filters.Add(FilterItem.JobStatus(filterStatus));
-            #endregion
-
-            //get jobs
-            Console.WriteLine("query jobs...");
-            List<JobInstance> jobs = new List<JobInstance>();
-            jobs.AddRange(await dpx.GetJobInstancesAsync(filters.ToArray()));
-
-            //abort if no jobs were found
-            if (jobs == null || jobs.Count <= 0)
-            {
-                Console.WriteLine("No jobs found!");
+                Console.WriteLine("Did not find any jobs!");
                 return;
-            }
-
-            #region Warn if dpx may not have records for the given start date
-            //find the job with the earlyest run date, check how that compares to the report start time
-            //dpx seems to only keep job information 30 days back
-            JobInstance oldestJobInstance = jobs.First();
-            foreach (JobInstance job in jobs)
-                if (job.StartTime < oldestJobInstance.StartTime)
-                    oldestJobInstance = job;
-
-            Console.WriteLine($"Oldest job is {oldestJobInstance.Name} started {oldestJobInstance.StartTime.ToString(DATE_FORMAT)}");
-            if (oldestJobInstance.StartTime.AddDays(-1) >= options.ReportStart)
-            {
-                ConsoleWriteColored("Oldest job found seems to be newer than selected start date! DPX may not have records reaching far enough.", ConsoleColor.Red);
-            }
-            #endregion
-
-            //filter jobs by status (no builtin way)
-            List<JobRunType> filterRunTypes = options.FilterJobRunTypes.ToList();
-            if (filterRunTypes.Count > 0)
-                jobs = jobs.Where((job) => job.RunType.HasValue && filterRunTypes.Contains(job.RunType.Value)).ToList();
-
-            //filter jobs that are already not in retention
-            if (options.ShouldOnlyListInRetention)
-                foreach (JobInstance job in jobs)
-                    if ((DateTime.Now - job.EndTime).TotalDays >= job.Retention)
-                    {
-                        Console.WriteLine($"Job {job.ID} is out of retention!");
-                        jobs.Remove(job);
-                    }
-
-            //check there are still jobs
-            if (jobs.Count <= 0)
-            {
-                Console.WriteLine("no jobs found!");
-                return;
-            }
-
-            //query metadata for jobs
-            //JobWithMeta is also used if no metadata is attached, to simplify the code *a little*
-            List<JobWithMeta> jobsAndMeta = new List<JobWithMeta>();
-            int i = 0;
-            foreach (JobInstance job in jobs)
-            {
-                //create basic job (without metadata yet)
-                JobWithMeta jobMeta = new JobWithMeta()
-                {
-                    Job = job
-                };
-                jobsAndMeta.Add(jobMeta);
-                i++;
-                Console.Write($"({i}/{jobs.Count}) processing job {job.ID}: ");
-
-                // query volsers if needed
-                if (options.ShouldIncludeVolsers || options.ShouldOnlyListVolsers)
-                {
-                    Console.Write("query volsers... ");
-                    jobMeta.Volsers = await job.GetVolsersUsed(false, options.MetaQueryTimeout);
-                }
-
-                // query size info if needed
-                if (options.ShouldIncludeSizeInfo && !options.ShouldOnlyListVolsers)
-                {
-                    Console.Write("query size...");
-                    jobMeta.Size = await job.GetBackupSizeAsync(false, options.MetaQueryTimeout);
-                }
-
-                Console.WriteLine();
             }
 
             //split print in full and only volsers mode
@@ -403,7 +330,7 @@ Licensed Categories:");
             {
                 //get volsers first, unify into one list
                 Dictionary<string /*volser*/, int /*use count*/> allVolsers = new Dictionary<string, int>();
-                foreach (JobWithMeta job in jobsAndMeta)
+                foreach (JobWithMeta job in jobsWithMeta)
                 {
                     string[] volsers = job.Volsers;
                     if (volsers != null && volsers.Length > 0)
@@ -447,7 +374,7 @@ Licensed Categories:");
                     "Data Backed up",
                     "Data on Tape",
                     "Volsers Used");
-                foreach (JobWithMeta m in jobsAndMeta)
+                foreach (JobWithMeta m in jobsWithMeta)
                 {
                     //build volser string
                     string volsersStr = "-";
@@ -487,8 +414,11 @@ Licensed Categories:");
             JobInstance lastBase = null,
                 lastDifr = null,
                 lastIncr = null;
-            foreach (JobInstance job in jobs)
+            foreach (JobWithMeta jobWithMeta in jobsWithMeta)
             {
+                //get job instance
+                JobInstance job = jobWithMeta.Job;
+
                 //check only instances of one job
                 if (string.IsNullOrWhiteSpace(jobName))
                     jobName = job.Name;
@@ -536,6 +466,83 @@ Licensed Categories:");
             else
                 Console.WriteLine("instances of more than one job were found, last run statistics not available.");
             #endregion
+        }
+
+        /// <summary>
+        /// app mode: get job stats and averages
+        /// </summary>
+        /// <param name="options">options from the command line</param>
+        static async Task JobStatsMain(JobStatsOptions options)
+        {
+            //initialize dpx client
+            if (!await InitClient(options))
+                return;
+
+            //query the jobs with only their size as metadata
+            List<JobWithMeta> jobsWithMeta = await QueryJobsWithMeta(options, false, false, true);
+
+            // check we found at least one job
+            if (jobsWithMeta == null || jobsWithMeta.Count <= 0)
+            {
+                Console.WriteLine("Did not find any jobs!");
+                return;
+            }
+
+            // analyze (meta-) data of jobs
+            Dictionary<string, JobStatsInfo> jobStats = new Dictionary<string, JobStatsInfo>();
+            foreach (JobWithMeta jm in jobsWithMeta)
+            {
+                //get run name of job (jobname + runtype)
+                string name = $"{jm.Job.Name}_{jm.Job.RunType}";
+
+                //get stats object by name, create if not exists
+                if (!jobStats.ContainsKey(name))
+                    jobStats.Add(name, new JobStatsInfo());
+
+                JobStatsInfo stats = jobStats[name];
+
+                // add this job to stats
+                stats.AverageTotalData.Add(jm.Size.TotalDataBackedUp);
+                stats.AverageDataOnMedia.Add(jm.Size.TotalDataOnMedia);
+                stats.AverageRunTime.Add(jm.Job.RunDuration / 1000.0);
+                stats.AddRunDate(jm.Job.StartTime);
+
+                if (jm.Job.GetStatus().IsFailedStatus())
+                    stats.FailedRuns++;
+                else
+                    stats.SuccessfulRuns++;
+            }
+
+            //init table
+            TableWriter w = new TableWriter();
+
+            //write nodes
+            w.WriteRow("Job",
+                "Total Data (Average)",
+                "Data on Tape (Average)",
+                "Run Time (Average)",
+                "Time Between Runs (Average)",
+                "Successfull Runs",
+                "Failed Runs",
+                "Success Rate");
+            foreach (string name in jobStats.Keys)
+                if (jobStats.TryGetValue(name, out JobStatsInfo stats))
+                {
+                    w.WriteRow(name,
+                        stats.AverageTotalData.Average.ToFileSize(),
+                        stats.AverageDataOnMedia.Average.ToFileSize(),
+                        TimeSpan.FromSeconds(stats.AverageRunTime.Average).ToString(),
+                        stats.AverageTimeBetweenRuns.ToString(),
+                        stats.SuccessfulRuns + "",
+                        stats.FailedRuns + "",
+                        stats.SuccessRate + " %");
+                }
+
+
+            //write table
+            if (!options.NoPrintToConsole)
+                w.WriteToConsole();
+            await WriteTableToFile(options, w);
         }
 
         /// <summary>
@@ -640,7 +647,9 @@ Licensed Categories:");
                 w.WriteToConsole();
             await WriteTableToFile(options, w);
         }
+        #endregion
 
+        #region Common Functions
         /// <summary>
         /// initializes and logs in the <see cref="dpx"/>
         /// </summary>
@@ -772,6 +781,134 @@ Licensed Categories:");
         }
 
         /// <summary>
+        /// query jobs using the filters defined in <see cref="JobQueryOptions"/> and then query their metadata.
+        /// You have to initialize the dpx client first before calling this function
+        /// </summary>
+        /// <param name="options">the job filter options</param>
+        /// <param name="onlyInRetention">should all jobs that are no longer in retention be removed from the list?</param>
+        /// <param name="metaVolsers">should we query volser information?</param>
+        /// <param name="metaSizeInfo">should we query size information?</param>
+        /// <returns></returns>
+        static async Task<List<JobWithMeta>> QueryJobsWithMeta(JobQueryOptions options,
+            bool onlyInRetention = false,
+            bool metaVolsers = false,
+            bool metaSizeInfo = false)
+        {
+            #region Build Filter
+            //start and end times
+            List<FilterItem> filters = new List<FilterItem>
+            {
+                FilterItem.ReportStart(options.ReportStart)
+            };
+
+            if (options.ReportEnd.HasValue)
+                filters.Add(FilterItem.ReportEnd(options.ReportEnd.Value));
+
+            //job filters
+            string[] filterJobs = options.FilterJobNames.ToArray();
+            if (filterJobs.Length > 0)
+                filters.Add(FilterItem.JobNameIs(filterJobs));
+
+            JobType[] filterTypes = options.FilterJobTypes.ToArray();
+            if (filterTypes.Length > 0)
+                filters.Add(FilterItem.JobType(filterTypes));
+
+            JobStatus[] filterStatus = options.FilterJobStatus.ToArray();
+            if (filterStatus.Length > 0)
+                filters.Add(FilterItem.JobStatus(filterStatus));
+            #endregion
+
+            #region get jobs from DPX api using filter
+            Console.WriteLine("query jobs...");
+            List<JobInstance> jobs = new List<JobInstance>();
+            jobs.AddRange(await dpx.GetJobInstancesAsync(filters.ToArray()));
+
+            //abort if no jobs were found
+            if (jobs == null || jobs.Count <= 0)
+            {
+                Console.WriteLine("No jobs found!");
+                return null;
+            }
+            #endregion
+
+            #region Warn if dpx may not have records for the given start date
+            //find the job with the earlyest run date, check how that compares to the report start time
+            //dpx seems to only keep job information 30 days back
+            JobInstance oldestJobInstance = jobs.First();
+            foreach (JobInstance job in jobs)
+                if (job.StartTime < oldestJobInstance.StartTime)
+                    oldestJobInstance = job;
+
+            Console.WriteLine($"Oldest job is {oldestJobInstance.Name} started {oldestJobInstance.StartTime.ToString(DATE_FORMAT)}");
+            if (oldestJobInstance.StartTime.AddDays(-1) >= options.ReportStart)
+            {
+                ConsoleWriteColored("Oldest job found seems to be newer than selected start date! DPX may not have records reaching far enough.", ConsoleColor.Red);
+            }
+            #endregion
+
+            #region Filter jobs further
+            //filter jobs by status (no builtin way)
+            List<JobRunType> filterRunTypes = options.FilterJobRunTypes.ToList();
+            if (filterRunTypes.Count > 0)
+                jobs = jobs.Where((job) => job.RunType.HasValue && filterRunTypes.Contains(job.RunType.Value)).ToList();
+
+            //filter jobs that are already not in retention
+            if (onlyInRetention)
+                foreach (JobInstance job in jobs)
+                    if ((DateTime.Now - job.EndTime).TotalDays >= job.Retention)
+                    {
+                        Console.WriteLine($"Job {job.ID} is out of retention!");
+                        jobs.Remove(job);
+                    }
+
+            //check there are still jobs
+            if (jobs.Count <= 0)
+            {
+                Console.WriteLine("no jobs found!");
+                return null;
+            }
+            #endregion
+
+            #region query metadata for jobs
+            // append jobs with metadata to results list (initialized at the top)
+            List<JobWithMeta> jobsWithMeta = new List<JobWithMeta>();
+            int i = 0;
+            foreach (JobInstance job in jobs)
+            {
+                //create basic job (without metadata yet)
+                JobWithMeta jobMeta = new JobWithMeta()
+                {
+                    Job = job
+                };
+                jobsWithMeta.Add(jobMeta);
+                i++;
+                Console.Write($"({i}/{jobs.Count}) processing job {job.ID}: ");
+
+                // query volsers if needed
+                if (metaVolsers)
+                {
+                    Console.Write("query volsers... ");
+                    jobMeta.Volsers = await job.GetVolsersUsed(false, options.MetaQueryTimeout);
+                }
+
+                // query size info if needed
+                if (metaSizeInfo)
+                {
+                    Console.Write("query size...");
+                    jobMeta.Size = await job.GetBackupSizeAsync(false, options.MetaQueryTimeout);
+                }
+
+                Console.WriteLine();
+            }
+            #endregion
+
+            // return null if no jobs were found (for some reason)
+            if (jobsWithMeta.Count <= 0)
+                return null;
+            return jobsWithMeta;
+        }
+
+        /// <summary>
         /// Write a message to the console, but colored
         /// </summary>
         /// <param name="message">the message to write</param>
@@ -810,6 +947,7 @@ Licensed Categories:");
             //dont handle any other errors
             return false;
         }
+        #endregion
 
         /// <summary>
         /// a job with metadata attached
@@ -830,6 +968,95 @@ Licensed Categories:");
             /// information about the job size for this job
             /// </summary>
             public DPXExtensions.JobSizeInfo Size { get; set; }
+        }
+
+        /// <summary>
+        /// stats for a job
+        /// </summary>
+        class JobStatsInfo
+        {
+            /// <summary>
+            /// average data backed up in this job, in bytes
+            /// </summary>
+            public AverageNumber AverageTotalData { get; } = new AverageNumber();
+
+            /// <summary>
+            /// average data wwritten to tape in this job, in bytes
+            /// </summary>
+            public AverageNumber AverageDataOnMedia { get; } = new AverageNumber();
+
+            /// <summary>
+            /// how long the job runs on average, in seconds
+            /// </summary>
+            public AverageNumber AverageRunTime { get; } = new AverageNumber();
+
+            /// <summary>
+            /// how often the job ran successful
+            /// </summary>
+            public long SuccessfulRuns { get; set; } = 0;
+
+            /// <summary>
+            /// how often the job failed
+            /// </summary>
+            public long FailedRuns { get; set; } = 0;
+
+            /// <summary>
+            /// how many percent the job runs successfull
+            /// </summary>
+            public double SuccessRate
+            {
+                get
+                {
+                    return 100.0 * SuccessfulRuns / (SuccessfulRuns + FailedRuns);
+                }
+            }
+
+            #region Logic for time between 
+            /// <summary>
+            /// internal list for dates the job ran, for time between calculation
+            /// </summary>
+            private List<DateTime> runTimes = new List<DateTime>();
+
+            /// <summary>
+            /// the average time between runs of this job
+            /// </summary>
+            public TimeSpan AverageTimeBetweenRuns
+            {
+                get
+                {
+                    // check we have at least two times we ran
+                    if (runTimes == null || runTimes.Count < 2)
+                        return TimeSpan.Zero;
+
+                    //sort times
+                    runTimes.Sort((a, b) => DateTime.Compare(a, b));
+
+                    // enumerate all times, excluding last one
+                    AverageNumber avg = new AverageNumber();
+                    for (int i = 0; i < runTimes.Count - 1; i++)
+                    {
+                        // get time of current and the following job
+                        DateTime now = runTimes[i];
+                        DateTime next = runTimes[i + 1];
+
+                        // calculate difference between run dates, add to average
+                        avg.Add((next - now).TotalSeconds);
+                    }
+
+                    // return average
+                    return TimeSpan.FromSeconds(avg.Average);
+                }
+            }
+
+            /// <summary>
+            /// add a time this job ran, for time between runs calculation
+            /// </summary>
+            /// <param name="date">the time to add</param>
+            public void AddRunDate(DateTime date)
+            {
+                runTimes.Add(date);
+            }
+            #endregion
         }
     }
 }
