@@ -46,8 +46,8 @@ if ($LASTEXITCODE -ne 0) {
 # run git describe to get version info
 $describe = (git describe --dirty --long)
 
-# run git describe to get latest tag (for file version)
-$tag = (git describe --tags)
+# run git tag to get latest tag (for file version)
+$tag = (git tag)
 
 # run git diff to get insertions and deletions
 $diff = (git diff HEAD^ --shortstat)
