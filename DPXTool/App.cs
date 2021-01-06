@@ -233,7 +233,12 @@ namespace DPXTool
         /// <summary>
         /// Format string to convert DateTime into string using toString()
         /// </summary>
-        const string DATE_FORMAT = "yyyy.MM.dd, HH:mm:ss";
+        const string DATETIME_FORMAT = @"yyyy.MM.dd, HH:mm:ss";
+
+        /// <summary>
+        /// Format strign to convert TimeSpan into string using toString();
+        /// </summary>
+        const string TIMESPAN_FORMAT = @"hh\:mm\:ss";
 
         /// <summary>
         /// the dpx client
@@ -382,9 +387,9 @@ Licensed Categories:");
                         volsersStr = string.Join(", ", m.Volsers);
 
                     //write to table
-                    w.WriteRow(m.Job.StartTime.ToString(DATE_FORMAT),
-                        m.Job.EndTime.ToString(DATE_FORMAT),
-                        TimeSpan.FromMilliseconds(m.Job.RunDuration).ToString(),
+                    w.WriteRow(m.Job.StartTime.ToString(DATETIME_FORMAT),
+                        m.Job.EndTime.ToString(DATETIME_FORMAT),
+                        TimeSpan.FromMilliseconds(m.Job.RunDuration).ToString(TIMESPAN_FORMAT),
                         m.Job.ID.ToString(),
                         m.Job.DisplayName,
                         m.Job.JobType.ToString(),
@@ -451,15 +456,15 @@ Licensed Categories:");
             {
                 Console.WriteLine(@$"last backup runs{(options.ShouldOnlyListInRetention ? " still in retention" : "")}:");
                 if (lastBase != null)
-                    Console.WriteLine($@" BASE: {lastBase.ID} finished {(DateTime.Now - lastBase.EndTime).TotalDays:0} days ago on {lastBase.EndTime.ToString(DATE_FORMAT)}");
+                    Console.WriteLine($@" BASE: {lastBase.ID} finished {(DateTime.Now - lastBase.EndTime).TotalDays:0} days ago on {lastBase.EndTime.ToString(DATETIME_FORMAT)}");
                 else
                     ConsoleWriteColored(" no BASE backup found!", ConsoleColor.Red);
                 if (lastDifr != null)
-                    Console.WriteLine($@" DIFR: {lastDifr.ID} finished {(DateTime.Now - lastDifr.EndTime).TotalDays:0} days ago on {lastDifr.EndTime.ToString(DATE_FORMAT)}");
+                    Console.WriteLine($@" DIFR: {lastDifr.ID} finished {(DateTime.Now - lastDifr.EndTime).TotalDays:0} days ago on {lastDifr.EndTime.ToString(DATETIME_FORMAT)}");
                 else
                     ConsoleWriteColored(" no DIFR backup found!", ConsoleColor.Red);
                 if (lastIncr != null)
-                    Console.WriteLine($@" INCR: {lastIncr.ID} finished {(DateTime.Now - lastIncr.EndTime).TotalDays:0} days ago on {lastIncr.EndTime.ToString(DATE_FORMAT)}");
+                    Console.WriteLine($@" INCR: {lastIncr.ID} finished {(DateTime.Now - lastIncr.EndTime).TotalDays:0} days ago on {lastIncr.EndTime.ToString(DATETIME_FORMAT)}");
                 else
                     ConsoleWriteColored(" no INCR backup found!", ConsoleColor.Red);
             }
@@ -490,6 +495,7 @@ Licensed Categories:");
 
             // analyze (meta-) data of jobs
             Dictionary<string, JobStatsInfo> jobStats = new Dictionary<string, JobStatsInfo>();
+            int jobsWithNoSizeInfo = 0;
             foreach (JobWithMeta jm in jobsWithMeta)
             {
                 //get run name of job (jobname + runtype)
@@ -501,17 +507,35 @@ Licensed Categories:");
 
                 JobStatsInfo stats = jobStats[name];
 
-                // add this job to stats
-                stats.AverageTotalData.Add(jm.Size.TotalDataBackedUp);
-                stats.AverageDataOnMedia.Add(jm.Size.TotalDataOnMedia);
+                // add this job to stats:
+                //size, if we have that info
+                if (jm.Size != null)
+                {
+                    stats.AverageTotalData.Add(jm.Size.TotalDataBackedUp);
+                    stats.AverageDataOnMedia.Add(jm.Size.TotalDataOnMedia);
+                }
+                else
+                {
+                    Console.WriteLine($"Job {name} ({jm.Job.ID}) does not have any size information!");
+                    jobsWithNoSizeInfo++;
+                }
+
+                //run time stats
                 stats.AverageRunTime.Add(jm.Job.RunDuration / 1000.0);
                 stats.AddRunDate(jm.Job.StartTime);
 
+                //status counting
                 if (jm.Job.GetStatus().IsFailedStatus())
                     stats.FailedRuns++;
                 else
                     stats.SuccessfulRuns++;
             }
+
+            //add info when more than 10% of jobs did not have size metadata (this can be because of too low --query-timeout or slow network)
+            if(jobsWithNoSizeInfo >= Math.Floor(jobsWithMeta.Count * 0.1))
+                ConsoleWriteColored($"\n{jobsWithNoSizeInfo} Jobs (> 10%) do not have size information associated with them!\n" +
+                    "Try increasing the --query-timeout, as a too low timeout OR slow network can cause those problems.\n",
+                    ConsoleColor.Red);
 
             //init table
             TableWriter w = new TableWriter();
@@ -531,8 +555,8 @@ Licensed Categories:");
                     w.WriteRow(name,
                         stats.AverageTotalData.Average.ToFileSize(),
                         stats.AverageDataOnMedia.Average.ToFileSize(),
-                        TimeSpan.FromSeconds(stats.AverageRunTime.Average).ToString(),
-                        stats.AverageTimeBetweenRuns.ToString(),
+                        TimeSpan.FromSeconds(stats.AverageRunTime.Average).ToString(TIMESPAN_FORMAT),
+                        stats.AverageTimeBetweenRuns.ToString(TIMESPAN_FORMAT),
                         stats.SuccessfulRuns + "",
                         stats.FailedRuns + "",
                         stats.SuccessRate + " %");
@@ -575,7 +599,7 @@ Licensed Categories:");
             //write license categories
             w.WriteRow("Source IP", "Time", "Module", "Message Code", "Message");
             foreach (InstanceLogEntry log in logs)
-                w.WriteRow(log.SourceIP, log.Time.ToString(DATE_FORMAT), log.Module, log.MessageCode, log.Message);
+                w.WriteRow(log.SourceIP, log.Time.ToString(DATETIME_FORMAT), log.Module, log.MessageCode, log.Message);
 
             //write table
             Console.WriteLine("logs for job " + options.JobInstanceID);
@@ -604,7 +628,7 @@ Licensed Categories:");
             //write node groups
             w.WriteRow("Group Name", "Comment", "Media Pool", "Cluster", "Creator", "Creation Time");
             foreach (NodeGroup g in groups)
-                w.WriteRow(g.Name, g.Comment, g.MediaPool, g.ClusterName, g.Creator, g.CreationTime.ToString(DATE_FORMAT));
+                w.WriteRow(g.Name, g.Comment, g.MediaPool, g.ClusterName, g.Creator, g.CreationTime.ToString(DATETIME_FORMAT));
 
             //write table
             Console.WriteLine($"Found {groups.Length} node groups:");
@@ -637,7 +661,7 @@ Licensed Categories:");
             //write nodes
             w.WriteRow("Node Group", "Node", "Server Name", "Node Type", "OS", "OS Name", "OS Version", "Creator", "Creation Time", "Comments");
             foreach (Node n in nodes)
-                w.WriteRow(n.GroupName, n.Name, n.ServerName, n.Type, n.OSGroup.ToString(), n.OSDisplayName, n.OSVersion, n.Creator, n.CreationTime.ToString(DATE_FORMAT), n.Comment);
+                w.WriteRow(n.GroupName, n.Name, n.ServerName, n.Type, n.OSGroup.ToString(), n.OSDisplayName, n.OSVersion, n.Creator, n.CreationTime.ToString(DATETIME_FORMAT), n.Comment);
 
 
             //write table
@@ -782,7 +806,9 @@ Licensed Categories:");
 
         /// <summary>
         /// query jobs using the filters defined in <see cref="JobQueryOptions"/> and then query their metadata.
-        /// You have to initialize the dpx client first before calling this function
+        /// You have to initialize the dpx client first before calling this function!!
+        /// 
+        /// Job metadata in <see cref="JobWithMeta"/> may be null even when metaVolsers and/or metaSizeInfo are requested!
         /// </summary>
         /// <param name="options">the job filter options</param>
         /// <param name="onlyInRetention">should all jobs that are no longer in retention be removed from the list?</param>
@@ -839,7 +865,7 @@ Licensed Categories:");
                 if (job.StartTime < oldestJobInstance.StartTime)
                     oldestJobInstance = job;
 
-            Console.WriteLine($"Oldest job is {oldestJobInstance.Name} started {oldestJobInstance.StartTime.ToString(DATE_FORMAT)}");
+            Console.WriteLine($"Oldest job is {oldestJobInstance.Name} started {oldestJobInstance.StartTime.ToString(DATETIME_FORMAT)}");
             if (oldestJobInstance.StartTime.AddDays(-1) >= options.ReportStart)
             {
                 ConsoleWriteColored("Oldest job found seems to be newer than selected start date! DPX may not have records reaching far enough.", ConsoleColor.Red);
@@ -961,11 +987,13 @@ Licensed Categories:");
 
             /// <summary>
             /// volsers that this job was written to
+            /// This may be null even when requested!
             /// </summary>
             public string[] Volsers { get; set; }
 
             /// <summary>
             /// information about the job size for this job
+            /// This may be null even when requested!
             /// </summary>
             public DPXExtensions.JobSizeInfo Size { get; set; }
         }
