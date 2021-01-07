@@ -1,4 +1,5 @@
 ﻿using DPXTool.DPX;
+using DPXTool.DPX.Extension;
 using DPXTool.DPX.Model.Common;
 using DPXTool.DPX.Model.Constants;
 using DPXTool.DPX.Model.JobInstances;
@@ -7,6 +8,7 @@ using DPXTool.DPX.Model.Nodes;
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace DPXTool
@@ -43,12 +45,12 @@ namespace DPXTool
             //await DemoVolsers();
             //await DemoNodes();
             //await DemoBackupSize();
-            await DemoLogsCached();
+            //await DemoLogsCached();
+            await DemoJobTimings();
 
             Console.WriteLine("end");
             Console.ReadLine();
         }
-
 
         /// <summary>
         /// demo for GetLicenseInfoAsync()
@@ -184,11 +186,42 @@ Licensed:");
             foreach (JobInstance job in jobs)
             {
                 Console.WriteLine($"Backup size info of job {job.DisplayName}:");
-                DPXExtensions.JobSizeInfo size = await job.GetBackupSizeAsync();
+                JobSizeInfo size = await job.GetBackupSizeAsync();
                 if (size == null)
                     Console.WriteLine("  no info available");
                 else
                     Console.WriteLine($"  Total Data: {size.TotalDataBackedUp}; Total on Media: {size.TotalDataOnMedia}");
+            }
+
+        }
+
+        /// <summary>
+        /// demo for GetJobTimings()
+        /// </summary>
+        static async Task DemoJobTimings()
+        {
+            const string FMT = @"hh\:mm\:ss";
+
+            //get jobs
+            JobInstance[] jobs = await client.GetJobInstancesAsync(FilterItem.JobNameIs("ST010-NACL02_cifs_automotive"),
+                FilterItem.ReportStart(DateTime.Now.Subtract(TimeSpan.FromDays(32))),
+                FilterItem.ReportEnd(DateTime.Now));
+
+            // query and print times for every job that completed
+            foreach (JobInstance job in jobs.Where(j => j.GetStatus() == JobStatus.Completed))
+            {
+                // query timing infos
+                JobTimeInfo timeSpend = await job.GetJobTimingsAsync();
+
+                // print times
+                Console.WriteLine($@"
+Time Summary of job {job.DisplayName} ({job.ID}):
+ Total: {timeSpend.Total.ToString(FMT)}
+ Init: {timeSpend.Initializing.ToString(FMT)}
+ Waiting: {timeSpend.Initializing.ToString(FMT)}
+ Preprocess: {timeSpend.Preprocessing.ToString(FMT)}
+ Transfer: {timeSpend.Transferring.ToString(FMT)}
+");
             }
 
         }

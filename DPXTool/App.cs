@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using DPXTool.DPX;
+using DPXTool.DPX.Extension;
 using DPXTool.DPX.Model.Common;
 using DPXTool.DPX.Model.Constants;
 using DPXTool.DPX.Model.JobInstances;
@@ -251,7 +252,7 @@ namespace DPXTool
         /// <param name="args">console arguments</param>
         public static void Main(string[] args)
         {
-            //Program.RunDemos().ConfigureAwait(false).GetAwaiter().GetResult();
+            Program.RunDemos().ConfigureAwait(false).GetAwaiter().GetResult();
 
             new Parser(o =>
             {
@@ -995,7 +996,7 @@ Licensed Categories:");
             /// information about the job size for this job
             /// This may be null even when requested!
             /// </summary>
-            public DPXExtensions.JobSizeInfo Size { get; set; }
+            public JobSizeInfo Size { get; set; }
         }
 
         /// <summary>
