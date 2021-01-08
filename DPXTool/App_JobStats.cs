@@ -1,5 +1,6 @@
 ﻿using CommandLine;
 using DPXTool.DPX;
+using DPXTool.DPX.Extension;
 using DPXTool.Util;
 using System;
 using System.Collections.Generic;
@@ -16,10 +17,15 @@ namespace DPXTool
         /// <summary>
         /// options for the job-stats command
         /// </summary>
-        [Verb("job-stats", HelpText = "get stats for backup jobs, like average size and fail / success rates")]
+        [Verb("job-stats", HelpText = "get stats for backup jobs, like average size, time spend on phases, and fail / success rates")]
         class JobStatsOptions : JobQueryOptions
         {
-            // no further options needed  
+            /// <summary>
+            /// disable formatting data sizes in table.
+            /// if true, always use KB as data unit
+            /// </summary>
+            [Option("no-data-units", Required = false, HelpText = "disable formatting data sizes with data units. If set, KB will be used exclusively.", Default = false)]
+            public bool DontFormatDataUnits { get; set; }
         }
 
         /// <summary>
@@ -33,7 +39,7 @@ namespace DPXTool
                 return;
 
             //query the jobs with only their size as metadata
-            List<JobWithMeta> jobsWithMeta = await QueryJobsWithMeta(options, false, false, true);
+            List<JobWithMeta> jobsWithMeta = await QueryJobsWithMeta(options, metaSizeInfo: true, metaTimeInfo: true);
 
             // check we found at least one job
             if (jobsWithMeta == null || jobsWithMeta.Count <= 0)
@@ -57,11 +63,11 @@ namespace DPXTool
                 JobStatsInfo stats = jobStats[name];
 
                 // add this job to stats:
-                //size, if we have that info
+                // size, if we have that info
                 if (jm.Size != null)
                 {
-                    stats.AverageTotalData.Add(jm.Size.TotalDataBackedUp);
-                    stats.AverageDataOnMedia.Add(jm.Size.TotalDataOnMedia);
+                    stats.TotalData.Add(jm.Size.TotalDataBackedUp);
+                    stats.DataOnMedia.Add(jm.Size.TotalDataOnMedia);
                 }
                 else
                 {
@@ -70,8 +76,8 @@ namespace DPXTool
                 }
 
                 //run time stats
-                stats.AverageRunTime.Add(jm.Job.RunDuration / 1000.0);
                 stats.AddRunDate(jm.Job.StartTime);
+                stats.AddJobTimeInfo(jm.TimeSpend);
 
                 //status counting
                 if (jm.Job.GetStatus().IsFailedStatus())
@@ -93,23 +99,43 @@ namespace DPXTool
             w.WriteRow("Job",
                 "Total Data (Average)",
                 "Data on Tape (Average)",
-                "Run Time (Average)",
                 "Time Between Runs (Average)",
+                "Job Duration (Average)",
+                "Time Spend Initializing (Average)",
+                "Time Spend Waiting (Average)",
+                "Time Spend Preprocessing (Average)",
+                "Time Spend Transferring Data (Average)",
                 "Successfull Runs",
                 "Failed Runs",
                 "Success Rate");
             foreach (string name in jobStats.Keys)
                 if (jobStats.TryGetValue(name, out JobStatsInfo stats))
                 {
+                    //get data size strings, default to static KB unit
+                    string totalData = Math.Floor(stats.TotalData.Average / 1000) + "KB";
+                    string dataOnMedia = Math.Floor(stats.DataOnMedia.Average / 1000) + "KB";
+                    if (!options.DontFormatDataUnits)
+                    {
+                        // use dynamic units
+                        totalData = stats.TotalData.Average.ToDataSize();
+                        dataOnMedia = stats.DataOnMedia.Average.ToDataSize();
+                    }
+
+                    //write table row
                     w.WriteRow(name,
-                        stats.AverageTotalData.Average.ToFileSize(),
-                        stats.AverageDataOnMedia.Average.ToFileSize(),
-                        TimeSpan.FromSeconds(stats.AverageRunTime.Average).ToString(TIMESPAN_FORMAT),
+                        totalData,
+                        dataOnMedia,
                         stats.AverageTimeBetweenRuns.ToString(TIMESPAN_FORMAT),
+                        stats.AveragePhaseTimes.Total.ToString(TIMESPAN_FORMAT),
+                        stats.AveragePhaseTimes.Initializing.ToString(TIMESPAN_FORMAT),
+                        stats.AveragePhaseTimes.Waiting.ToString(TIMESPAN_FORMAT),
+                        stats.AveragePhaseTimes.Preprocessing.ToString(TIMESPAN_FORMAT),
+                        stats.AveragePhaseTimes.Transferring.ToString(TIMESPAN_FORMAT),
                         stats.SuccessfulRuns + "",
                         stats.FailedRuns + "",
                         stats.SuccessRate + " %");
                 }
+
 
 
             //write table
@@ -126,17 +152,12 @@ namespace DPXTool
             /// <summary>
             /// average data backed up in this job, in bytes
             /// </summary>
-            public AverageNumber AverageTotalData { get; } = new AverageNumber();
+            public AverageNumber TotalData { get; } = new AverageNumber();
 
             /// <summary>
             /// average data wwritten to tape in this job, in bytes
             /// </summary>
-            public AverageNumber AverageDataOnMedia { get; } = new AverageNumber();
-
-            /// <summary>
-            /// how long the job runs on average, in seconds
-            /// </summary>
-            public AverageNumber AverageRunTime { get; } = new AverageNumber();
+            public AverageNumber DataOnMedia { get; } = new AverageNumber();
 
             /// <summary>
             /// how often the job ran successful
@@ -159,7 +180,72 @@ namespace DPXTool
                 }
             }
 
-            #region Logic for time between 
+            #region Phase ime Statistics
+            /// <summary>
+            /// internal list of job timings, for time statistics
+            /// </summary>
+            private List<JobTimeInfo> jobTimes = new List<JobTimeInfo>();
+
+            /// <summary>
+            /// get the average time this job spend on its different phases
+            /// </summary>
+            public JobTimeInfo AveragePhaseTimes
+            {
+                get
+                {
+                    // check we have at least one time info 
+                    if (jobTimes == null || jobTimes.Count <= 0)
+                        return new JobTimeInfo();
+
+                    // prepare variables for different phases
+                    // save total seconds
+                    double total = 0,
+                        init = 0,
+                        wait = 0,
+                        preprocess = 0,
+                        transfer = 0;
+
+                    // add all phase times to totals
+                    foreach (JobTimeInfo time in jobTimes)
+                    {
+                        total += time.Total.TotalSeconds;
+                        init += time.Initializing.TotalSeconds;
+                        wait += time.Waiting.TotalSeconds;
+                        preprocess += time.Preprocessing.TotalSeconds;
+                        transfer += time.Transferring.TotalSeconds;
+                    }
+
+                    // divide all totals by the number of jobs that ran (that we know of)
+                    double count = jobTimes.Count;
+                    total /= count;
+                    init /= count;
+                    wait /= count;
+                    preprocess /= count;
+                    transfer /= count;
+
+                    // return a JobTimeInfo object with the averages
+                    return new JobTimeInfo()
+                    {
+                        Total = TimeSpan.FromSeconds(total),
+                        Initializing = TimeSpan.FromSeconds(init),
+                        Waiting = TimeSpan.FromSeconds(wait),
+                        Preprocessing = TimeSpan.FromSeconds(preprocess),
+                        Transferring = TimeSpan.FromSeconds(transfer)
+                    };
+                }
+            }
+
+            /// <summary>
+            /// add a job time info to this jobs statistics
+            /// </summary>
+            /// <param name="time">the job time to add</param>
+            public void AddJobTimeInfo(JobTimeInfo time)
+            {
+                jobTimes.Add(time);
+            }
+            #endregion
+
+            #region Time between runs
             /// <summary>
             /// internal list for dates the job ran, for time between calculation
             /// </summary>

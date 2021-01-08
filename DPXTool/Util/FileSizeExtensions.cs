@@ -12,7 +12,7 @@
         /// <returns>the file size string</returns>
         public static string ToFileSize(this long bytes)
         {
-            return ((double)bytes).ToFileSize();
+            return ((double)bytes).ToDataSize();
         }
 
         /// <summary>
@@ -20,7 +20,7 @@
         /// </summary>
         /// <param name="bytes">the number of bytes</param>
         /// <returns>the file size string</returns>
-        public static string ToFileSize(this double bytes)
+        public static string ToDataSize(this double bytes)
         {
             // data units, each is 1000x bigger than the one before
             string[] UNITS = { "B", "KB", "MB", "GB", "TB", "PB", "EB" };

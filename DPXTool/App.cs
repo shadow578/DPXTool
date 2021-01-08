@@ -135,7 +135,7 @@ namespace DPXTool
         /// <param name="args">console arguments</param>
         public static void Main(string[] args)
         {
-            Demos.RunDemos().ConfigureAwait(false).GetAwaiter().GetResult();
+            //Demos.RunDemos().ConfigureAwait(false).GetAwaiter().GetResult();
 
             new Parser(o =>
             {
@@ -213,11 +213,13 @@ namespace DPXTool
         /// <param name="onlyInRetention">should all jobs that are no longer in retention be removed from the list?</param>
         /// <param name="metaVolsers">should we query volser information?</param>
         /// <param name="metaSizeInfo">should we query size information?</param>
+        /// <param name="metaTimeInfo">should we query phase time information?</param>
         /// <returns></returns>
         static async Task<List<JobWithMeta>> QueryJobsWithMeta(JobQueryOptions options,
             bool onlyInRetention = false,
             bool metaVolsers = false,
-            bool metaSizeInfo = false)
+            bool metaSizeInfo = false,
+            bool metaTimeInfo = false)
         {
             #region Build Filter
             //start and end times
@@ -321,6 +323,13 @@ namespace DPXTool
                 {
                     Console.Write("query size...");
                     jobMeta.Size = await job.GetBackupSizeAsync(false, options.MetaQueryTimeout);
+                }
+
+                // query phase times if needed
+                if(metaTimeInfo)
+                {
+                    Console.Write("query times...");
+                    jobMeta.TimeSpend = await job.GetJobTimingsAsync(options.MetaQueryTimeout);
                 }
 
                 Console.WriteLine();
@@ -473,6 +482,11 @@ namespace DPXTool
             /// This may be null even when requested!
             /// </summary>
             public JobSizeInfo Size { get; set; }
+
+            /// <summary>
+            /// information about the time the job spend in its different phases
+            /// </summary>
+            public JobTimeInfo TimeSpend { get; set; }
         }
     }
 }
