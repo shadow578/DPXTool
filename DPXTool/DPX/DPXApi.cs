@@ -39,6 +39,15 @@ namespace DPXTool.DPX
         Task<JobInstance[]> GetJobInstances([Header("Authorization")] string bearerToken, [AliasAs("filter")] string jobFilter);
 
         /// <summary>
+        /// get job instances matching the given filter criteria
+        /// </summary>
+        /// <param name="bearerToken">token from Login function. (Bearer {token})</param>
+        /// <param name="jobInstanceID">job instange to get</param>
+        /// <returns>a list of all found job instances</returns>
+        [Get("/app/api/job_instances/{id}")]
+        Task<JobInstance> GetJobInstance([Header("Authorization")] string bearerToken, [AliasAs("id")] long jobInstanceID);
+
+        /// <summary>
         /// get logs from a job instance with the given instance id
         /// </summary>
         /// <param name="bearerToken">token from Login function. (Bearer {token})</param>

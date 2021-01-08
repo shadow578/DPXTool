@@ -46,7 +46,9 @@ namespace DPXTool
             //await DemoNodes();
             //await DemoBackupSize();
             //await DemoLogsCached();
-            await DemoJobTimings();
+            //await DemoJobTimings();
+            await DemoUniqueJob();
+
 
             Console.WriteLine("end");
             Console.ReadLine();
@@ -96,6 +98,21 @@ Licensed:");
             {
                 Console.WriteLine(@$"   {job.DisplayName}");
             }
+        }
+
+        /// <summary>
+        /// demo for GetJobInstance()
+        /// </summary>
+        static async Task DemoUniqueJob()
+        {
+            //get job
+            JobInstance job = await client.GetJobInstanceAsync(1610072101);
+
+            //print job details
+            if(job == null)
+                Console.WriteLine("Job not found");
+            else
+                Console.WriteLine($"  {job.DisplayName} with ID {job.ID}");
         }
 
         /// <summary>

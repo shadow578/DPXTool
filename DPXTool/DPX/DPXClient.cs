@@ -176,6 +176,28 @@ namespace DPXTool.DPX
         }
 
         /// <summary>
+        /// Get a specific job instance by its instance ID
+        /// </summary>
+        /// <param name="jobInstanceID">the job instance to get</param>
+        /// <returns>the job with the given instance id. This may be null if the job does not exist</returns>
+        public async Task<JobInstance> GetJobInstanceAsync(long jobInstanceID)
+        {
+            //check state
+            ThrowIfInvalidState();
+
+            return await TryAndRetry(async () =>
+            {
+                //send request
+                JobInstance job = await dpx.GetJobInstance(Token, jobInstanceID);
+
+                //set client reference in job
+                job.SourceClient = this;
+
+                return job;
+            });
+        }
+
+        /// <summary>
         /// get logs of the job instance with the given id
         /// </summary>
         /// <param name="jobInstanceID">the job instance to get logs of</param>
