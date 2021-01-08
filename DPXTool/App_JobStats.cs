@@ -241,7 +241,8 @@ namespace DPXTool
             /// <param name="time">the job time to add</param>
             public void AddJobTimeInfo(JobTimeInfo time)
             {
-                jobTimes.Add(time);
+                if (time != null)
+                    jobTimes.Add(time);
             }
             #endregion
 
