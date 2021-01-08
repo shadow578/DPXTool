@@ -61,8 +61,9 @@ namespace DPXTool.DPX
             JobSizeInfo sizeInfo = new JobSizeInfo();
 
             //search logs for the following message codes:
-            //ssjobhnd - SNBJH_3311J - total backup size       - "Total data backed up: 3670512 KB"
-            //ssjobhnd - SNBJH_3313J - total data on tape      - "Total data on media: 3670592 KB"
+            //ssjobhnd - SNBJH_3311J - total backup size         - "Total data backed up: 3670512 KB"
+            //ssjobhnd - SNBJH_3313J - total data on tape        - "Total data on media: 3670592 KB"
+            //??       - SNBSVH_253J - total data volume (BLOCK) - "Total data volume : 222 GB" 
             bool oneFound = false;
             foreach (InstanceLogEntry log in logs)
                 if (log.Match(module: "ssjobhnd", messageCode: "SNBJH_3311J"))
@@ -75,6 +76,47 @@ namespace DPXTool.DPX
                 {
                     //total data on tape; parse and convert from KB to Bytes
                     sizeInfo.TotalDataOnMedia = ParseLong(log.Message.ToLower(), @"total data on media: (\d*) kb").GetValueOrDefault(0) * 1000;
+                    oneFound = true;
+                }
+                else if (log.Match(/*module: "",*/ messageCode: "SNBSVH_253J"))
+                {
+                    //total backup volume (BLOCK); parse and convert from unit suffix to Bytes
+                    const string PATTERN = @"total data volume : (\d*) (kb|mb|gb|tb|pb)";
+
+                    //parse size in whatever unit
+                    long size = ParseLong(log.Message.ToLower(), PATTERN).GetValueOrDefault(0);
+
+                    //get unit using a second regex, same pattern
+                    Match m = Regex.Match(log.Message.ToLower(), PATTERN);
+
+                    // check we have a successfull match on the unit capture group
+                    if (!m.Success
+                        || m.Groups.Count < 3
+                        || !m.Groups[2].Success)
+                        break;
+
+                    //get unit and convert size to bytes
+                    switch(m.Groups[2].Value)
+                    {
+                        case "pb":
+                            size /= 1000000000000000;
+                            break;
+                        case "tb":
+                            size /= 1000000000000;
+                            break;
+                        case "gb":
+                            size /= 1000000000;
+                            break;
+                        case "mb":
+                            size /= 1000000;
+                            break;
+                        case "kb":
+                            size /= 1000;
+                            break;
+                    }
+
+                    //set size in SizeInfo object
+                    sizeInfo.TotalDataBackedUp = size;
                     oneFound = true;
                 }
 
