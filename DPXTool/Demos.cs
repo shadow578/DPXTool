@@ -19,7 +19,7 @@ namespace DPXTool
     /// </summary>
     [Obsolete("early usage demo and tests for DPX Client")]
     [SuppressMessage("CodeQuality", "IDE0051", Justification = "Demo Functions are for demo :P")]
-    class Program
+    class Demos
     {
         static DPXClient client;
 

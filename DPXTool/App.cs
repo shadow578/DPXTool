@@ -4,8 +4,6 @@ using DPXTool.DPX.Extension;
 using DPXTool.DPX.Model.Common;
 using DPXTool.DPX.Model.Constants;
 using DPXTool.DPX.Model.JobInstances;
-using DPXTool.DPX.Model.License;
-using DPXTool.DPX.Model.Nodes;
 using DPXTool.Util;
 using Refit;
 using System;
@@ -19,11 +17,12 @@ using System.Threading.Tasks;
 namespace DPXTool
 {
     /// <summary>
-    /// Main application class
+    /// Main application class, parts:
+    /// - Main
+    /// - Shared
     /// </summary>
-    public static class App
+    public static partial class App
     {
-        #region Commandline Option classes
         /// <summary>
         /// Base options that are shared between all verbs
         /// </summary>
@@ -65,81 +64,6 @@ namespace DPXTool
             /// </summary>
             [Option("no-console", Required = false, HelpText = "disable printing results to console", Default = false)]
             public bool NoPrintToConsole { get; set; }
-        }
-
-        /// <summary>
-        /// Options for the get-license command
-        /// </summary>
-        [Verb("get-license", HelpText = "get license information")]
-        class PrintLicenseOptions : BaseOptions
-        {
-            //no additional options needed
-        }
-
-        /// <summary>
-        /// Options for the get-logs command
-        /// </summary>
-        [Verb("get-logs", HelpText = "get logs for a job by job id")]
-        class GetLogsOptions : BaseOptions
-        {
-            /// <summary>
-            /// job instance id to get logs of
-            /// </summary>
-            [Option('j', "job-id", Required = true, HelpText = "the job instance id to get logs of")]
-            public long JobInstanceID { get; set; }
-
-            /// <summary>
-            /// index of the first log to get
-            /// </summary>
-            [Option('s', "start", Required = false, HelpText = "the index of the first log entry to get", Default = 0)]
-            public long LogStartIndex { get; set; }
-
-            /// <summary>
-            /// how many log entries to get
-            /// </summary>
-            [Option('c', "count", Required = false, HelpText = "how many log entries to get", Default = 500)]
-            public long LogCount { get; set; }
-
-            /// <summary>
-            /// should we get all log entries?
-            /// </summary>
-            [Option('a', "all-logs", Required = false, HelpText = "get all log entries? if set, --start and --count are overwritten", Default = false)]
-            public bool GetAllLogs { get; set; }
-        }
-
-        /// <summary>
-        /// Options for the get-node-groups command
-        /// </summary>
-        [Verb("get-node-groups", HelpText = "get a list of all node groups")]
-        class GetNodeGroupsOptions : BaseOptions
-        {
-            //no additional options needed
-        }
-
-        /// <summary>
-        /// Options for the get-nodes command
-        /// </summary>
-        [Verb("get-nodes", HelpText = "get information about nodes")]
-        class GetNodesOptions : BaseOptions
-        {
-            /// <summary>
-            /// name of the node to print.
-            /// If set, NodeGroup and NodeType are ignored
-            /// </summary>
-            [Option('n', "name", Required = false, HelpText = "name of the node to print. If set, node-group and node-type are ignored", Default = null)]
-            public string NodeName { get; set; }
-
-            /// <summary>
-            /// the node group to print nodes of
-            /// </summary>
-            [Option('g', "node-group", Required = false, HelpText = "the node group to print all nodes of. works in conjunction with node-group", Default = null)]
-            public string NodeGroup { get; set; }
-
-            /// <summary>
-            /// the node type to print all nodes of
-            /// </summary>
-            [Option('t', "node-type", Required = false, HelpText = "the type of node to print nodes of. works in conjunction with node-group", Default = null)]
-            public string NodeType { get; set; }
         }
 
         /// <summary>
@@ -191,47 +115,6 @@ namespace DPXTool
         }
 
         /// <summary>
-        /// Options for the get-jobs command
-        /// </summary>
-        [Verb("get-jobs", HelpText = "get jobs and information about them")]
-        class GetJobsOptions : JobQueryOptions
-        {
-            /// <summary>
-            /// should used volsers be included in the report?
-            /// </summary>
-            [Option("include-volsers", Required = false, HelpText = "include volsers used in the report?", Default = false)]
-            public bool ShouldIncludeVolsers { get; set; }
-
-            /// <summary>
-            /// should the report only be a list of volsers used?
-            /// </summary>
-            [Option("only-volsers", Required = false, HelpText = "only list used volsers in the report?", Default = false)]
-            public bool ShouldOnlyListVolsers { get; set; }
-
-            /// <summary>
-            /// should size info for the job be included in the report?
-            /// </summary>
-            [Option("include-size", Required = false, HelpText = "include job size info in the report?", Default = false)]
-            public bool ShouldIncludeSizeInfo { get; set; }
-
-            /// <summary>
-            /// should only jobs that are still in retention be listed?
-            /// </summary>
-            [Option("only-in-retention", Required = false, HelpText = "only include jobs that are still in retention", Default = false)]
-            public bool ShouldOnlyListInRetention { get; set; }
-        }
-
-        /// <summary>
-        /// options for the job-stats command
-        /// </summary>
-        [Verb("job-stats", HelpText = "get stats for backup jobs, like average size and fail / success rates")]
-        class JobStatsOptions : JobQueryOptions
-        {
-            // no further options needed  
-        }
-        #endregion
-
-        /// <summary>
         /// Format string to convert DateTime into string using toString()
         /// </summary>
         const string DATETIME_FORMAT = @"yyyy.MM.dd, HH:mm:ss";
@@ -252,7 +135,7 @@ namespace DPXTool
         /// <param name="args">console arguments</param>
         public static void Main(string[] args)
         {
-            Program.RunDemos().ConfigureAwait(false).GetAwaiter().GetResult();
+            Demos.RunDemos().ConfigureAwait(false).GetAwaiter().GetResult();
 
             new Parser(o =>
             {
@@ -269,412 +152,6 @@ namespace DPXTool
                 .WithParsed<GetNodesOptions>(opt => GetNodesMain(opt).GetAwaiter().GetResult());
         }
 
-        #region App Modes
-        /// <summary>
-        /// app mode: print license information
-        /// </summary>
-        /// <param name="options">options from the command line</param>
-        static async Task PrintLicenseMain(PrintLicenseOptions options)
-        {
-            //initialize dpx client
-            if (!await InitClient(options))
-                return;
-
-            //get license details
-            Console.WriteLine("query license...");
-            LicenseResponse l = await dpx.GetLicenseInfoAsync();
-
-            #region write license details to console
-            Console.WriteLine($@"
-License Details for {l.ServerHostName}:
- Node: {l.ServerNodeName} ({l.ServerNodeAddress})
- Version: {l.DPXVersion} (built {l.DPXBuildDate} at {l.DPXBuildTime})
- Is Evaluation License: {(l.IsEvalLicanse ? "Yes" : "No")}
- License Expires in: {l.ExpiresInDays} days 
- 
-Licensed Categories:");
-            foreach (LicenseCategory c in l.LicenseCategories)
-                ConsoleWriteColored($" {c.Name}: {c.Consumed} of {c.Licensed}", ConsoleColor.Red, c.IsLicenseViolated);
-            #endregion
-
-            #region write license details to file
-            //write license categories
-            TableWriter w = new TableWriter();
-            w.WriteRow("Node", "Category", "Consumed", "Licensed", "License Violation");
-            foreach (LicenseCategory c in l.LicenseCategories)
-                w.WriteRow(l.ServerNodeName, c.Name, c.Consumed.ToString(), c.Licensed.ToString(), c.IsLicenseViolated ? "YES" : "NO");
-
-            //write file
-            await WriteTableToFile(options, w);
-            #endregion
-        }
-
-        /// <summary>
-        /// app mode: get information about jobs
-        /// </summary>
-        /// <param name="options">options from the command line</param>
-        static async Task GetJobsMain(GetJobsOptions options)
-        {
-            //initialize dpx client
-            if (!await InitClient(options))
-                return;
-
-            //query the jobs with their metadata
-            List<JobWithMeta> jobsWithMeta = await QueryJobsWithMeta(options, options.ShouldOnlyListInRetention,
-                options.ShouldIncludeVolsers | options.ShouldOnlyListVolsers,
-                options.ShouldIncludeSizeInfo & !options.ShouldOnlyListVolsers);// no need to query size info if we won't use it anyways
-
-            // check we found at leas one job
-            if (jobsWithMeta == null || jobsWithMeta.Count <= 0)
-            {
-                Console.WriteLine("Did not find any jobs!");
-                return;
-            }
-
-            //split print in full and only volsers mode
-            if (options.ShouldOnlyListVolsers)
-            {
-                //get volsers first, unify into one list
-                Dictionary<string /*volser*/, int /*use count*/> allVolsers = new Dictionary<string, int>();
-                foreach (JobWithMeta job in jobsWithMeta)
-                {
-                    string[] volsers = job.Volsers;
-                    if (volsers != null && volsers.Length > 0)
-                        foreach (string volser in volsers)
-                            if (!allVolsers.ContainsKey(volser))
-                                allVolsers.Add(volser, 1);
-                            else
-                                allVolsers[volser]++;
-                }
-
-                //init table
-                TableWriter w = new TableWriter();
-
-                //write volsers categories
-                w.WriteRow("Volser", "Used by Jobs");
-                foreach (string volser in allVolsers.Keys)
-                    w.WriteRow(volser, allVolsers[volser].ToString());
-
-                //write table
-                if (!options.NoPrintToConsole)
-                    w.WriteToConsole();
-                await WriteTableToFile(options, w);
-            }
-            else
-            {
-                //init table
-                TableWriter w = new TableWriter();
-
-                //write license categories
-                w.WriteRow("Start Time",
-                    "End Time",
-                    "Duration",
-                    "ID",
-                    "Name",
-                    "Protocol",
-                    "Type",
-                    "Retention (days)",
-                    "Days since run",
-                    "RC",
-                    "Status",
-                    "Data Backed up",
-                    "Data on Tape",
-                    "Volsers Used");
-                foreach (JobWithMeta m in jobsWithMeta)
-                {
-                    //build volser string
-                    string volsersStr = "-";
-                    if (m.Volsers != null && m.Volsers.Length > 0)
-                        volsersStr = string.Join(", ", m.Volsers);
-
-                    //write to table
-                    w.WriteRow(m.Job.StartTime.ToString(DATETIME_FORMAT),
-                        m.Job.EndTime.ToString(DATETIME_FORMAT),
-                        TimeSpan.FromMilliseconds(m.Job.RunDuration).ToString(TIMESPAN_FORMAT),
-                        m.Job.ID.ToString(),
-                        m.Job.DisplayName,
-                        m.Job.JobType.ToString(),
-                        m.Job.RunType.ToString(),
-                        m.Job.Retention.ToString(),
-                        (DateTime.Now - m.Job.EndTime).TotalDays.ToString("0"),
-                        m.Job.ReturnCode.ToString(),
-                        m.Job.GetStatus().ToString(),
-
-                        m.Size == null ? "-" : m.Size.TotalDataBackedUp.ToFileSize(),
-                        m.Size == null ? "-" : m.Size.TotalDataOnMedia.ToFileSize(),
-
-                        volsersStr);
-                }
-
-                //write table
-                if (!options.NoPrintToConsole)
-                    w.WriteToConsole();
-                await WriteTableToFile(options, w);
-            }
-
-            #region print last backup run times
-            //check only instances of one job were found (by filter or coincidence i guess :P)
-            //get latest backup jobs by type
-            bool onlyOneJob = true;
-            string jobName = string.Empty;
-            JobInstance lastBase = null,
-                lastDifr = null,
-                lastIncr = null;
-            foreach (JobWithMeta jobWithMeta in jobsWithMeta)
-            {
-                //get job instance
-                JobInstance job = jobWithMeta.Job;
-
-                //check only instances of one job
-                if (string.IsNullOrWhiteSpace(jobName))
-                    jobName = job.Name;
-                else if (!jobName.Equals(job.Name))
-                {
-                    onlyOneJob = false;
-                    break;
-                }
-
-                //get last jobs
-                switch (job.RunType)
-                {
-                    case JobRunType.BASE:
-                        if (lastBase == null || job.EndTime > lastBase.EndTime)
-                            lastBase = job;
-                        break;
-                    case JobRunType.DIFR:
-                        if (lastDifr == null || job.EndTime > lastDifr.EndTime)
-                            lastDifr = job;
-                        break;
-                    case JobRunType.INCR:
-                        if (lastIncr == null || job.EndTime > lastIncr.EndTime)
-                            lastIncr = job;
-                        break;
-                }
-            }
-
-            //print to ui if only one job
-            if (onlyOneJob)
-            {
-                Console.WriteLine(@$"last backup runs{(options.ShouldOnlyListInRetention ? " still in retention" : "")}:");
-                if (lastBase != null)
-                    Console.WriteLine($@" BASE: {lastBase.ID} finished {(DateTime.Now - lastBase.EndTime).TotalDays:0} days ago on {lastBase.EndTime.ToString(DATETIME_FORMAT)}");
-                else
-                    ConsoleWriteColored(" no BASE backup found!", ConsoleColor.Red);
-                if (lastDifr != null)
-                    Console.WriteLine($@" DIFR: {lastDifr.ID} finished {(DateTime.Now - lastDifr.EndTime).TotalDays:0} days ago on {lastDifr.EndTime.ToString(DATETIME_FORMAT)}");
-                else
-                    ConsoleWriteColored(" no DIFR backup found!", ConsoleColor.Red);
-                if (lastIncr != null)
-                    Console.WriteLine($@" INCR: {lastIncr.ID} finished {(DateTime.Now - lastIncr.EndTime).TotalDays:0} days ago on {lastIncr.EndTime.ToString(DATETIME_FORMAT)}");
-                else
-                    ConsoleWriteColored(" no INCR backup found!", ConsoleColor.Red);
-            }
-            else
-                Console.WriteLine("instances of more than one job were found, last run statistics not available.");
-            #endregion
-        }
-
-        /// <summary>
-        /// app mode: get job stats and averages
-        /// </summary>
-        /// <param name="options">options from the command line</param>
-        static async Task JobStatsMain(JobStatsOptions options)
-        {
-            //initialize dpx client
-            if (!await InitClient(options))
-                return;
-
-            //query the jobs with only their size as metadata
-            List<JobWithMeta> jobsWithMeta = await QueryJobsWithMeta(options, false, false, true);
-
-            // check we found at least one job
-            if (jobsWithMeta == null || jobsWithMeta.Count <= 0)
-            {
-                Console.WriteLine("Did not find any jobs!");
-                return;
-            }
-
-            // analyze (meta-) data of jobs
-            Dictionary<string, JobStatsInfo> jobStats = new Dictionary<string, JobStatsInfo>();
-            int jobsWithNoSizeInfo = 0;
-            foreach (JobWithMeta jm in jobsWithMeta)
-            {
-                //get run name of job (jobname + runtype)
-                string name = $"{jm.Job.Name}_{jm.Job.RunType}";
-
-                //get stats object by name, create if not exists
-                if (!jobStats.ContainsKey(name))
-                    jobStats.Add(name, new JobStatsInfo());
-
-                JobStatsInfo stats = jobStats[name];
-
-                // add this job to stats:
-                //size, if we have that info
-                if (jm.Size != null)
-                {
-                    stats.AverageTotalData.Add(jm.Size.TotalDataBackedUp);
-                    stats.AverageDataOnMedia.Add(jm.Size.TotalDataOnMedia);
-                }
-                else
-                {
-                    Console.WriteLine($"Job {name} ({jm.Job.ID}) does not have any size information!");
-                    jobsWithNoSizeInfo++;
-                }
-
-                //run time stats
-                stats.AverageRunTime.Add(jm.Job.RunDuration / 1000.0);
-                stats.AddRunDate(jm.Job.StartTime);
-
-                //status counting
-                if (jm.Job.GetStatus().IsFailedStatus())
-                    stats.FailedRuns++;
-                else
-                    stats.SuccessfulRuns++;
-            }
-
-            //add info when more than 10% of jobs did not have size metadata (this can be because of too low --query-timeout or slow network)
-            if(jobsWithNoSizeInfo >= Math.Floor(jobsWithMeta.Count * 0.1))
-                ConsoleWriteColored($"\n{jobsWithNoSizeInfo} Jobs (> 10%) do not have size information associated with them!\n" +
-                    "Try increasing the --query-timeout, as a too low timeout OR slow network can cause those problems.\n",
-                    ConsoleColor.Red);
-
-            //init table
-            TableWriter w = new TableWriter();
-
-            //write nodes
-            w.WriteRow("Job",
-                "Total Data (Average)",
-                "Data on Tape (Average)",
-                "Run Time (Average)",
-                "Time Between Runs (Average)",
-                "Successfull Runs",
-                "Failed Runs",
-                "Success Rate");
-            foreach (string name in jobStats.Keys)
-                if (jobStats.TryGetValue(name, out JobStatsInfo stats))
-                {
-                    w.WriteRow(name,
-                        stats.AverageTotalData.Average.ToFileSize(),
-                        stats.AverageDataOnMedia.Average.ToFileSize(),
-                        TimeSpan.FromSeconds(stats.AverageRunTime.Average).ToString(TIMESPAN_FORMAT),
-                        stats.AverageTimeBetweenRuns.ToString(TIMESPAN_FORMAT),
-                        stats.SuccessfulRuns + "",
-                        stats.FailedRuns + "",
-                        stats.SuccessRate + " %");
-                }
-
-
-            //write table
-            if (!options.NoPrintToConsole)
-                w.WriteToConsole();
-            await WriteTableToFile(options, w);
-        }
-
-        /// <summary>
-        /// app mode: get logs for a job
-        /// </summary>
-        /// <param name="options">options from the command line</param>
-        static async Task GetLogsMain(GetLogsOptions options)
-        {
-            //initialize dpx client
-            if (!await InitClient(options))
-                return;
-
-            //check job id seems valid
-            if (options.JobInstanceID <= 0)
-            {
-                Console.WriteLine($"job id {options.JobInstanceID} is invalid!");
-                return;
-            }
-
-            //get logs for job
-            InstanceLogEntry[] logs;
-            if (options.GetAllLogs)
-                logs = await dpx.GetAllJobInstanceLogsAsync(options.JobInstanceID);
-            else
-                logs = await dpx.GetJobInstanceLogsAsync(options.JobInstanceID, options.LogStartIndex, options.LogCount);
-
-            //init table
-            TableWriter w = new TableWriter();
-
-            //write license categories
-            w.WriteRow("Source IP", "Time", "Module", "Message Code", "Message");
-            foreach (InstanceLogEntry log in logs)
-                w.WriteRow(log.SourceIP, log.Time.ToString(DATETIME_FORMAT), log.Module, log.MessageCode, log.Message);
-
-            //write table
-            Console.WriteLine("logs for job " + options.JobInstanceID);
-            if (!options.NoPrintToConsole)
-                w.WriteToConsole();
-            await WriteTableToFile(options, w);
-        }
-
-        /// <summary>
-        /// app mode: get node groups
-        /// </summary>
-        /// <param name="options">options from the command line</param>
-        static async Task GetNodeGroupsMain(GetNodeGroupsOptions options)
-        {
-            //initialize dpx client
-            if (!await InitClient(options))
-                return;
-
-            //get node groups
-            Console.WriteLine("query node groups...");
-            NodeGroup[] groups = await dpx.GetNodeGroupsAsync();
-
-            //init table
-            TableWriter w = new TableWriter();
-
-            //write node groups
-            w.WriteRow("Group Name", "Comment", "Media Pool", "Cluster", "Creator", "Creation Time");
-            foreach (NodeGroup g in groups)
-                w.WriteRow(g.Name, g.Comment, g.MediaPool, g.ClusterName, g.Creator, g.CreationTime.ToString(DATETIME_FORMAT));
-
-            //write table
-            Console.WriteLine($"Found {groups.Length} node groups:");
-            if (!options.NoPrintToConsole)
-                w.WriteToConsole();
-            await WriteTableToFile(options, w);
-        }
-
-        /// <summary>
-        /// app mode: get nodes
-        /// </summary>
-        /// <param name="options">options from the command line</param>
-        static async Task GetNodesMain(GetNodesOptions options)
-        {
-            //initialize dpx client
-            if (!await InitClient(options))
-                return;
-
-            //get nodes
-            Console.WriteLine("query nodes...");
-            Node[] nodes;
-            if (!string.IsNullOrWhiteSpace(options.NodeName))
-                nodes = (await dpx.GetNodesAsync()).Where((n) => n.Name.Equals(options.NodeName, StringComparison.OrdinalIgnoreCase)).ToArray();
-            else
-                nodes = await dpx.GetNodesAsync(options.NodeGroup, options.NodeType);
-
-            //init table
-            TableWriter w = new TableWriter();
-
-            //write nodes
-            w.WriteRow("Node Group", "Node", "Server Name", "Node Type", "OS", "OS Name", "OS Version", "Creator", "Creation Time", "Comments");
-            foreach (Node n in nodes)
-                w.WriteRow(n.GroupName, n.Name, n.ServerName, n.Type, n.OSGroup.ToString(), n.OSDisplayName, n.OSVersion, n.Creator, n.CreationTime.ToString(DATETIME_FORMAT), n.Comment);
-
-
-            //write table
-            Console.WriteLine($"Found {nodes.Length} nodes:");
-
-            if (!options.NoPrintToConsole)
-                w.WriteToConsole();
-            await WriteTableToFile(options, w);
-        }
-        #endregion
-
-        #region Common Functions
         /// <summary>
         /// initializes and logs in the <see cref="dpx"/>
         /// </summary>
@@ -724,85 +201,6 @@ Licensed Categories:");
                 Console.WriteLine($"Failed to log client with username {username}! Is the password correct?");
 
             return ok;
-        }
-
-        /// <summary>
-        /// show a password prompt
-        /// </summary>
-        /// <param name="message">the message to show on the prompt</param>
-        /// <returns>the password entered</returns>
-        static string ShowPasswordPrompt(string message)
-        {
-            //prompt user to enter password
-            Console.Write(message);
-            string pw = "";
-            ConsoleKeyInfo key;
-            while ((key = Console.ReadKey(true)).Key != ConsoleKey.Enter)
-            {
-                if (key.Key == ConsoleKey.Backspace)
-                {
-                    if (pw.Length > 0)
-                    {
-                        pw = pw[0..^1];
-                        Console.Write("\b \b");
-                    }
-                }
-                else
-                {
-                    pw += key.KeyChar;
-                    Console.Write("*");
-                }
-            }
-
-            Console.WriteLine();
-            return pw;
-        }
-
-        /// <summary>
-        /// write the table to a file defined by options
-        /// </summary>
-        /// <param name="options">the base options</param>
-        /// <param name="writer">the table writer to write to file</param>
-        static async Task WriteTableToFile(BaseOptions options, TableWriter writer)
-        {
-            //check writer is enabled
-            if (string.IsNullOrWhiteSpace(options.OutputFile))
-                return;
-
-            //get path and check if is valid
-            string path = options.OutputFile;
-            if (!Path.IsPathFullyQualified(path))
-                path = Path.GetFullPath(path);
-
-            //get file extension
-            string ext = Path.GetExtension(path);
-            if (string.IsNullOrWhiteSpace(ext))
-            {
-                Console.WriteLine("output file is is no file!");
-                return;
-            }
-
-            //create file directory as needed
-            string dir = Path.GetDirectoryName(path);
-            if (!Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-
-            //write to file
-            Console.WriteLine("Writing to " + path);
-            ext = ext.ToLower().TrimStart('.');
-            switch (ext)
-            {
-                case "html":
-                case "htm":
-                    await writer.WriteToFileAsync(path, TableWriter.TableFormat.HTML);
-                    break;
-                case "csv":
-                    await writer.WriteToFileAsync(path, TableWriter.TableFormat.CSV);
-                    break;
-                default:
-                    Console.WriteLine("unknown file type: " + ext + ". Supported types are html and csv");
-                    break;
-            }
         }
 
         /// <summary>
@@ -936,6 +334,104 @@ Licensed Categories:");
         }
 
         /// <summary>
+        /// a event invoked when a dpx api error occurs
+        /// </summary>
+        /// <param name="e">the exeption thrown by the api</param>
+        /// <returns>should the call be retired? if false, the call is aborted and the exeption is thrown</returns>
+        static bool OnDPXApiError(ApiException e)
+        {
+            //check if 401 unauthentificated
+            if (e.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                //re- login, token may have expired
+                string pw = ShowPasswordPrompt($"re-enter password for {dpx.LoggedInUser}@{dpx.DPXHost}: ");
+                return TryLoginAsync(dpx.LoggedInUser, pw).GetAwaiter().GetResult();
+            }
+
+            //dont handle any other errors
+            return false;
+        }
+
+        /// <summary>
+        /// write the table to a file defined by options
+        /// </summary>
+        /// <param name="options">the base options</param>
+        /// <param name="writer">the table writer to write to file</param>
+        static async Task WriteTableToFile(BaseOptions options, TableWriter writer)
+        {
+            //check writer is enabled
+            if (string.IsNullOrWhiteSpace(options.OutputFile))
+                return;
+
+            //get path and check if is valid
+            string path = options.OutputFile;
+            if (!Path.IsPathFullyQualified(path))
+                path = Path.GetFullPath(path);
+
+            //get file extension
+            string ext = Path.GetExtension(path);
+            if (string.IsNullOrWhiteSpace(ext))
+            {
+                Console.WriteLine("output file is is no file!");
+                return;
+            }
+
+            //create file directory as needed
+            string dir = Path.GetDirectoryName(path);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            //write to file
+            Console.WriteLine("Writing to " + path);
+            ext = ext.ToLower().TrimStart('.');
+            switch (ext)
+            {
+                case "html":
+                case "htm":
+                    await writer.WriteToFileAsync(path, TableWriter.TableFormat.HTML);
+                    break;
+                case "csv":
+                    await writer.WriteToFileAsync(path, TableWriter.TableFormat.CSV);
+                    break;
+                default:
+                    Console.WriteLine("unknown file type: " + ext + ". Supported types are html and csv");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// show a password prompt
+        /// </summary>
+        /// <param name="message">the message to show on the prompt</param>
+        /// <returns>the password entered</returns>
+        static string ShowPasswordPrompt(string message)
+        {
+            //prompt user to enter password
+            Console.Write(message);
+            string pw = "";
+            ConsoleKeyInfo key;
+            while ((key = Console.ReadKey(true)).Key != ConsoleKey.Enter)
+            {
+                if (key.Key == ConsoleKey.Backspace)
+                {
+                    if (pw.Length > 0)
+                    {
+                        pw = pw[0..^1];
+                        Console.Write("\b \b");
+                    }
+                }
+                else
+                {
+                    pw += key.KeyChar;
+                    Console.Write("*");
+                }
+            }
+
+            Console.WriteLine();
+            return pw;
+        }
+
+        /// <summary>
         /// Write a message to the console, but colored
         /// </summary>
         /// <param name="message">the message to write</param>
@@ -955,26 +451,6 @@ Licensed Categories:");
             if (useColor)
                 Console.ForegroundColor = original;
         }
-
-        /// <summary>
-        /// a event invoked when a dpx api error occurs
-        /// </summary>
-        /// <param name="e">the exeption thrown by the api</param>
-        /// <returns>should the call be retired? if false, the call is aborted and the exeption is thrown</returns>
-        static bool OnDPXApiError(ApiException e)
-        {
-            //check if 401 unauthentificated
-            if (e.StatusCode == HttpStatusCode.Unauthorized)
-            {
-                //re- login, token may have expired
-                string pw = ShowPasswordPrompt($"re-enter password for {dpx.LoggedInUser}@{dpx.DPXHost}: ");
-                return TryLoginAsync(dpx.LoggedInUser, pw).GetAwaiter().GetResult();
-            }
-
-            //dont handle any other errors
-            return false;
-        }
-        #endregion
 
         /// <summary>
         /// a job with metadata attached
@@ -997,95 +473,6 @@ Licensed Categories:");
             /// This may be null even when requested!
             /// </summary>
             public JobSizeInfo Size { get; set; }
-        }
-
-        /// <summary>
-        /// stats for a job
-        /// </summary>
-        class JobStatsInfo
-        {
-            /// <summary>
-            /// average data backed up in this job, in bytes
-            /// </summary>
-            public AverageNumber AverageTotalData { get; } = new AverageNumber();
-
-            /// <summary>
-            /// average data wwritten to tape in this job, in bytes
-            /// </summary>
-            public AverageNumber AverageDataOnMedia { get; } = new AverageNumber();
-
-            /// <summary>
-            /// how long the job runs on average, in seconds
-            /// </summary>
-            public AverageNumber AverageRunTime { get; } = new AverageNumber();
-
-            /// <summary>
-            /// how often the job ran successful
-            /// </summary>
-            public long SuccessfulRuns { get; set; } = 0;
-
-            /// <summary>
-            /// how often the job failed
-            /// </summary>
-            public long FailedRuns { get; set; } = 0;
-
-            /// <summary>
-            /// how many percent the job runs successfull
-            /// </summary>
-            public double SuccessRate
-            {
-                get
-                {
-                    return 100.0 * SuccessfulRuns / (SuccessfulRuns + FailedRuns);
-                }
-            }
-
-            #region Logic for time between 
-            /// <summary>
-            /// internal list for dates the job ran, for time between calculation
-            /// </summary>
-            private List<DateTime> runTimes = new List<DateTime>();
-
-            /// <summary>
-            /// the average time between runs of this job
-            /// </summary>
-            public TimeSpan AverageTimeBetweenRuns
-            {
-                get
-                {
-                    // check we have at least two times we ran
-                    if (runTimes == null || runTimes.Count < 2)
-                        return TimeSpan.Zero;
-
-                    //sort times
-                    runTimes.Sort((a, b) => DateTime.Compare(a, b));
-
-                    // enumerate all times, excluding last one
-                    AverageNumber avg = new AverageNumber();
-                    for (int i = 0; i < runTimes.Count - 1; i++)
-                    {
-                        // get time of current and the following job
-                        DateTime now = runTimes[i];
-                        DateTime next = runTimes[i + 1];
-
-                        // calculate difference between run dates, add to average
-                        avg.Add((next - now).TotalSeconds);
-                    }
-
-                    // return average
-                    return TimeSpan.FromSeconds(avg.Average);
-                }
-            }
-
-            /// <summary>
-            /// add a time this job ran, for time between runs calculation
-            /// </summary>
-            /// <param name="date">the time to add</param>
-            public void AddRunDate(DateTime date)
-            {
-                runTimes.Add(date);
-            }
-            #endregion
         }
     }
 }
