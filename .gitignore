@@ -6,6 +6,9 @@
 # auto- generated AssemblyInfo.cs
 DPXTool/AssemblyInfo.cs
 
+# ignore everything happening in DPXLib submodule
+DPXLib/
+
 # User-specific files
 *.rsuser
 *.suo
