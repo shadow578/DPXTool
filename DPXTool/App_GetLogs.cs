@@ -1,5 +1,5 @@
 ﻿using CommandLine;
-using DPXTool.DPX.Model.JobInstances;
+using DPXLib.Model.JobInstances;
 using DPXTool.Util;
 using System;
 using System.Threading.Tasks;

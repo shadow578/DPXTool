@@ -1,6 +1,7 @@
 ﻿using CommandLine;
+using DPXLib.Extension;
+using DPXLib.Util;
 using DPXTool.DPX;
-using DPXTool.DPX.Extension;
 using DPXTool.Util;
 using System;
 using System.Collections.Generic;
@@ -184,7 +185,7 @@ namespace DPXTool
             /// <summary>
             /// internal list of job timings, for time statistics
             /// </summary>
-            private List<JobTimeInfo> jobTimes = new List<JobTimeInfo>();
+            private readonly List<JobTimeInfo> jobTimes = new List<JobTimeInfo>();
 
             /// <summary>
             /// get the average time this job spend on its different phases
@@ -250,7 +251,7 @@ namespace DPXTool
             /// <summary>
             /// internal list for dates the job ran, for time between calculation
             /// </summary>
-            private List<DateTime> runTimes = new List<DateTime>();
+            private readonly List<DateTime> runTimes = new List<DateTime>();
 
             /// <summary>
             /// the average time between runs of this job

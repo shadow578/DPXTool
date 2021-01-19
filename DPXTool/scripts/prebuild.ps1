@@ -9,9 +9,9 @@ param(
 # Write your product information here                       #
 # Versioning is handled using GIT                           #
 #############################################################
-$productName = "DPXTool"
+$productName = "DPXLib"
 $productVendor = "shadow578"
-$productDesc = "A Tool for working with DPX"
+$productDesc = "A Library to interact with Catalogic DPX"
 $copyrightYear = (Get-Date).Year
 #############################################################
 #############################################################
@@ -51,6 +51,23 @@ $tag = (git describe --abbrev=0)
 
 # run git diff to get insertions and deletions
 $diff = (git diff HEAD^ --shortstat)
+
+# backup in case git does not give us a nice description
+$tagOrDescribeEmpty = $false
+if ([string]::IsNullOrWhiteSpace($tag)) {
+    $tag = "0.0.0"
+    $tagOrDescribeEmpty = $true
+}
+
+if ([string]::IsNullOrWhiteSpace($describe)) {
+    $describe = "0.0.0_untagged"
+    $tagOrDescribeEmpty = $true
+}
+
+# warn if backup code above had to fix anything
+if ($tagOrDescribeEmpty) {
+    Write-Output "WARNING: cannot get version tag or description from git! is git initialized and has tags?"
+}
 
 # check if result of git describe contains "dirty" keyword
 # if not, we dont include insertions/deletions in our version string (is not needed)

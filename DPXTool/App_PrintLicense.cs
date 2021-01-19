@@ -1,5 +1,5 @@
 ﻿using CommandLine;
-using DPXTool.DPX.Model.License;
+using DPXLib.Model.License;
 using DPXTool.Util;
 using System;
 using System.Threading.Tasks;

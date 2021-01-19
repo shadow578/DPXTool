@@ -1,6 +1,6 @@
 ﻿using CommandLine;
-using DPXTool.DPX.Model.Constants;
-using DPXTool.DPX.Model.JobInstances;
+using DPXLib.Model.Constants;
+using DPXLib.Model.JobInstances;
 using DPXTool.Util;
 using System;
 using System.Collections.Generic;

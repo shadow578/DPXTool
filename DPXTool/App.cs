@@ -1,9 +1,9 @@
 ﻿using CommandLine;
-using DPXTool.DPX;
-using DPXTool.DPX.Extension;
-using DPXTool.DPX.Model.Common;
-using DPXTool.DPX.Model.Constants;
-using DPXTool.DPX.Model.JobInstances;
+using DPXLib;
+using DPXLib.Extension;
+using DPXLib.Model.Common;
+using DPXLib.Model.Constants;
+using DPXLib.Model.JobInstances;
 using DPXTool.Util;
 using Refit;
 using System;

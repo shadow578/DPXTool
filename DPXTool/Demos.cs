@@ -1,10 +1,10 @@
-﻿using DPXTool.DPX;
-using DPXTool.DPX.Extension;
-using DPXTool.DPX.Model.Common;
-using DPXTool.DPX.Model.Constants;
-using DPXTool.DPX.Model.JobInstances;
-using DPXTool.DPX.Model.License;
-using DPXTool.DPX.Model.Nodes;
+﻿using DPXLib;
+using DPXLib.Extension;
+using DPXLib.Model.Common;
+using DPXLib.Model.Constants;
+using DPXLib.Model.JobInstances;
+using DPXLib.Model.License;
+using DPXLib.Model.Nodes;
 using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;

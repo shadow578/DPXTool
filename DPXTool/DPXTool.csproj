@@ -8,8 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
-    <PackageReference Include="Refit" Version="5.2.1" />
-    <PackageReference Include="Refit.HttpClientFactory" Version="5.2.1" />
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">

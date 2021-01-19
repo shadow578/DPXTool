@@ -1,5 +1,5 @@
 ﻿using CommandLine;
-using DPXTool.DPX.Model.Nodes;
+using DPXLib.Model.Nodes;
 using DPXTool.Util;
 using System;
 using System.Threading.Tasks;
