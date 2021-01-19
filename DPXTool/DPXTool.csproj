@@ -10,6 +10,10 @@
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\DPXLib\DPXLib\DPXLib.csproj" />
+  </ItemGroup>
+
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
     <Exec Command="powershell -ExecutionPolicy Unrestricted &quot;$(ProjectDir)\scripts\prebuild.ps1 -projectDir '$(ProjectDir)' -configurationName '$(ConfigurationName)'&quot;&#xD;&#xA;" />
   </Target>

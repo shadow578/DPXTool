@@ -1,0 +1,3 @@
+[submodule "DPXLib"]
+	path = DPXLib
+	url = https://github.com/shadow578/DPXLib.git
