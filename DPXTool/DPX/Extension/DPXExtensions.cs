@@ -63,7 +63,7 @@ namespace DPXTool.DPX
             //search logs for the following message codes:
             //ssjobhnd - SNBJH_3311J - total backup size         - "Total data backed up: 3670512 KB"
             //ssjobhnd - SNBJH_3313J - total data on tape        - "Total data on media: 3670592 KB"
-            //??       - SNBSVH_253J - total data volume (BLOCK) - "Total data volume : 222 GB" 
+            //sssvh    - SNBSVH_253J - total data volume (BLOCK) - "Total data volume : 222 GB" 
             bool oneFound = false;
             foreach (InstanceLogEntry log in logs)
                 if (log.Match(module: "ssjobhnd", messageCode: "SNBJH_3311J"))
@@ -78,7 +78,7 @@ namespace DPXTool.DPX
                     sizeInfo.TotalDataOnMedia = ParseLong(log.Message.ToLower(), @"total data on media: (\d*) kb").GetValueOrDefault(0) * 1000;
                     oneFound = true;
                 }
-                else if (log.Match(/*module: "",*/ messageCode: "SNBSVH_253J"))
+                else if (log.Match(module: "sssvh", messageCode: "SNBSVH_253J"))
                 {
                     //total backup volume (BLOCK); parse and convert from unit suffix to Bytes
                     const string PATTERN = @"total data volume : (\d*) (kb|mb|gb|tb|pb)";
@@ -151,7 +151,6 @@ namespace DPXTool.DPX
 
             // search logs for message codes that mark the beginning of the phases
             // assign time variables with the first log matching the phase
-            //TODO: modules for BLOCK logs (currently cannot find them)
             foreach (InstanceLogEntry log in logs)
                 if (log.Match(module: "sssched", messageCode: "SNBSCH5607J"))
                 {
@@ -177,7 +176,7 @@ namespace DPXTool.DPX
                     if (!waitingPhaseBegin.HasValue)
                         waitingPhaseBegin = log.Time;
                 }
-                else if (log.Match(/*module: "",*/ messageCode: "SNBSVH_278J"))
+                else if (log.Match(module: "sssvh", messageCode: "SNBSVH_278J"))
                 {
                     //BLOCK: job definition preprocessing (node OR cluster) / PREPROCESS
                     if (!preprocessPhaseBegin.HasValue)
@@ -189,7 +188,7 @@ namespace DPXTool.DPX
                     if (!transferPhaseBegin.HasValue)
                         transferPhaseBegin = log.Time;
                 }
-                else if (log.Match(/*module: "",*/ messageCode: "SNBSVH_234J"))
+                else if (log.Match(module: "sssvh", messageCode: "SNBSVH_234J"))
                 {
                     //BLOCK: transfer status update
                     if (!transferPhaseBegin.HasValue)
