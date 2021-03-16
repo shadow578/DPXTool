@@ -64,6 +64,12 @@ namespace DPXTool
             /// </summary>
             [Option("no-console", Required = false, HelpText = "disable printing results to console", Default = false)]
             public bool NoPrintToConsole { get; set; }
+
+            /// <summary>
+            /// directory for offline log file mirrors
+            /// </summary>
+            [Option("logs-mirror-dir", Required = false, HelpText = "directory in which job log mirrors are saved in. Optional, tho makes loading of volsers and other stats faster.", Default = null)]
+            public string OfflineLogsMirror { get; set; }
         }
 
         /// <summary>
@@ -166,6 +172,10 @@ namespace DPXTool
             //init client
             dpx = new DPXClient(options.DPXHost, options.DebugNetworkRequests);
             dpx.DPXApiError += OnDPXApiError;
+
+            //set offline log mirror if set and exists
+            if (!string.IsNullOrWhiteSpace(options.OfflineLogsMirror) && Directory.Exists(options.OfflineLogsMirror))
+                dpx.OfflineLogsMirrorsDirectory = options.OfflineLogsMirror;
 
             //get login password
             string pw = options.Password;
@@ -326,7 +336,7 @@ namespace DPXTool
                 }
 
                 // query phase times if needed
-                if(metaTimeInfo)
+                if (metaTimeInfo)
                 {
                     Console.Write("query times...");
                     jobMeta.TimeSpend = await job.GetJobTimingsAsync(options.MetaQueryTimeout);
