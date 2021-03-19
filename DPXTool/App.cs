@@ -291,12 +291,14 @@ namespace DPXTool
 
             //filter jobs that are already not in retention
             if (onlyInRetention)
-                foreach (JobInstance job in jobs)
+                jobs = jobs.Where((job) => {
                     if ((DateTime.Now - job.EndTime).TotalDays >= job.Retention)
                     {
                         Console.WriteLine($"Job {job.ID} is out of retention!");
-                        jobs.Remove(job);
+                        return false;
                     }
+                    return true;
+                }).ToList();
 
             //check there are still jobs
             if (jobs.Count <= 0)
