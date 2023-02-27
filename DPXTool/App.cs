@@ -96,12 +96,6 @@ namespace DPXTool
             public IEnumerable<string> FilterJobNames { get; set; }
 
             /// <summary>
-            /// job filter by job type (BLOCK, NDMP)
-            /// </summary>
-            [Option("job-protocol", Required = false, HelpText = "filter for jobs with these protocols (Block, File, NDMP, Catalog, ...). multiple possible")]
-            public IEnumerable<JobType> FilterJobTypes { get; set; }
-
-            /// <summary>
             /// job filter by job run type (BASE, DIFF, INCR)
             /// </summary>
             [Option("job-type", Required = false, HelpText = "filter for jobs with this type (Base, Difr, Incr). multiple possible")]
@@ -245,10 +239,6 @@ namespace DPXTool
             string[] filterJobs = options.FilterJobNames.ToArray();
             if (filterJobs.Length > 0)
                 filters.Add(FilterItem.JobNameIs(filterJobs));
-
-            JobType[] filterTypes = options.FilterJobTypes.ToArray();
-            if (filterTypes.Length > 0)
-                filters.Add(FilterItem.JobType(filterTypes));
 
             JobStatus[] filterStatus = options.FilterJobStatus.ToArray();
             if (filterStatus.Length > 0)
